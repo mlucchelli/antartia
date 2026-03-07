@@ -329,12 +329,13 @@ data/
 │   └── vision_preview/      — Derived preview JPEGs
 └── expedition.db            — Single SQLite database
 
+
 ```
 
 ## Key Design Decisions
 
-### Recursive tool chaining — LLM loops until final action
-The runtime keeps invoking the LLM until it emits `send_message` or `escalate`. After each non-final action, the tool result is appended to the message context as a `tool` role message. `max_chain_depth = 6` prevents infinite loops — at depth 6 a forced `send_message` is injected.
+### Recursive tool chaining — LLM loops until `send_message`
+The runtime keeps invoking the LLM until it emits `send_message`. After each non-final action, the tool result is appended to the message context as a `tool` role message. `max_chain_depth = 6` prevents infinite loops — at depth 6 a forced `send_message` is injected.
 
 ### Input disabled during any semaphore hold
 When `task_running` or `llm_running`, the CLI replaces the input row with a live status line: `⠹ task: scan_photo_inbox — step 2/7: running vision...`. Each task step calls `on_task_progress(step, detail)` on the `OutputHandler`, which streams to the scroll area in real time. Input is restored only when the semaphore returns to `idle`.
@@ -431,8 +432,8 @@ python -m agent --config configs/expedition_config.json --session <id>    # resu
 | 4  | CLI interface with test mode                                                 | Done     |
 | 5  | OpenRouter LLM client + system prompt engineering + debug mode               | Done     |
 | 6  | FileStateStore + enhanced CLI (status bar, spinner, terminal layout)         | Done     |
-| 7  | DB layer: aiosqlite + 6 table repos (locations, photos, weather, tasks, messages, sessions) | Planned  |
-| 8  | Models: LocationRecord, TaskRecord, PhotoRecord                              | Planned  |
+| 7  | DB layer: aiosqlite + 6 table repos (locations, photos, weather, tasks, messages, sessions) | Done     |
+| 8  | Models: LocationRecord, TaskRecord, PhotoRecord                              | Done     |
 | 9  | HTTP server: POST /locations → process_location task                         | Planned  |
 | 10 | ExecutionSemaphore + Scheduler (5s tick, weather schedule)                   | Planned  |
 | 11 | Recursive runtime chaining (max_depth=6, tool result context appending)      | Planned  |
