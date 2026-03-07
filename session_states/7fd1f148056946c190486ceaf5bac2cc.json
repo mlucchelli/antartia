@@ -1,0 +1,99 @@
+{
+  "session_id": "7fd1f148056946c190486ceaf5bac2cc",
+  "started_at": "2026-03-03T13:50:56.709043Z",
+  "last_activity": "2026-03-03T13:51:40.936441Z",
+  "messages": [
+    {
+      "role": "assistant",
+      "content": "Hey there! Welcome to our pizza place. I'm here to help you place your order. Let me grab a few details and we'll get your pizza on the way!",
+      "timestamp": "2026-03-03T13:50:56.710614Z"
+    },
+    {
+      "role": "user",
+      "content": "hola",
+      "timestamp": "2026-03-03T13:50:58.353340Z"
+    },
+    {
+      "role": "assistant",
+      "content": "¡Hola! Ready to talk pizza? 🍕 Let's get your order started! First, what's your name?",
+      "timestamp": "2026-03-03T13:51:01.396510Z"
+    },
+    {
+      "role": "user",
+      "content": "mario",
+      "timestamp": "2026-03-03T13:51:06.404698Z"
+    },
+    {
+      "role": "assistant",
+      "content": "Awesome, Mario! 🍕 Now, can I get your phone number for order updates?",
+      "timestamp": "2026-03-03T13:51:09.080515Z"
+    },
+    {
+      "role": "user",
+      "content": "2235713024",
+      "timestamp": "2026-03-03T13:51:14.037543Z"
+    },
+    {
+      "role": "assistant",
+      "content": "Thanks, Mario! Now, are we doing delivery or pickup for your pizza?",
+      "timestamp": "2026-03-03T13:51:18.333875Z"
+    },
+    {
+      "role": "user",
+      "content": "picup",
+      "timestamp": "2026-03-03T13:51:21.904888Z"
+    },
+    {
+      "role": "assistant",
+      "content": "Perfect, pickup it is! 🍕 Now, what kind of pizza are you craving? Tell me the size and toppings!",
+      "timestamp": "2026-03-03T13:51:24.993453Z"
+    },
+    {
+      "role": "user",
+      "content": "tell the options",
+      "timestamp": "2026-03-03T13:51:31.426700Z"
+    },
+    {
+      "role": "assistant",
+      "content": "Sorry, I had trouble processing that. Could you repeat?",
+      "timestamp": "2026-03-03T13:51:40.936426Z"
+    }
+  ],
+  "collected_fields": {
+    "customer_name": {
+      "value": "mario",
+      "confidence": 1.0,
+      "validation_status": "valid",
+      "collected_at": "2026-03-03T13:51:09.080070Z"
+    },
+    "phone": {
+      "value": "2235713024",
+      "confidence": 1.0,
+      "validation_status": "valid",
+      "collected_at": "2026-03-03T13:51:18.332628Z"
+    },
+    "order_type": {
+      "value": "pickup",
+      "confidence": 1.0,
+      "validation_status": "valid",
+      "collected_at": "2026-03-03T13:51:24.991593Z"
+    }
+  },
+  "total_attempts": 0,
+  "escalated": false,
+  "escalation_reason": null,
+  "steps": [
+    {
+      "step_key": "greeting",
+      "status": "completed"
+    },
+    {
+      "step_key": "collecting_fields",
+      "status": "in_progress"
+    },
+    {
+      "step_key": "escalation",
+      "status": "pending"
+    }
+  ]
+}

@@ -1,0 +1,75 @@
+{
+  "session_id": "32d69fda8227478b84bf8a12821efcbd",
+  "started_at": "2026-03-03T20:17:00.707586Z",
+  "last_activity": "2026-03-03T20:17:28.641426Z",
+  "messages": [
+    {
+      "role": "assistant",
+      "content": "Hello! I'm here to help you today. I'll need to collect some information to assist you better. Let's get started!",
+      "timestamp": "2026-03-03T20:17:00.708206Z"
+    },
+    {
+      "role": "user",
+      "content": "sure, my name is mario",
+      "timestamp": "2026-03-03T20:17:04.941983Z"
+    },
+    {
+      "role": "assistant",
+      "content": "Great to meet you, Mario! Could you please provide your email address?",
+      "timestamp": "2026-03-03T20:17:08.803360Z"
+    },
+    {
+      "role": "user",
+      "content": "mario@mario.com",
+      "timestamp": "2026-03-03T20:17:14.021884Z"
+    },
+    {
+      "role": "assistant",
+      "content": "Thank you for that! Now, could you share your phone number with area code?",
+      "timestamp": "2026-03-03T20:17:16.866862Z"
+    },
+    {
+      "role": "user",
+      "content": "5492334535423",
+      "timestamp": "2026-03-03T20:17:25.631531Z"
+    },
+    {
+      "role": "assistant",
+      "content": "Thanks for providing your phone number! Now, could you please give me your complete address, including street, city, state, and zip code?",
+      "timestamp": "2026-03-03T20:17:28.641418Z"
+    }
+  ],
+  "collected_fields": {
+    "name": {
+      "value": "mario",
+      "confidence": 0.9,
+      "validation_status": "valid",
+      "collected_at": "2026-03-03T20:17:08.799147Z"
+    },
+    "email": {
+      "value": "mario@mario.com",
+      "confidence": 0.9,
+      "validation_status": "valid",
+      "collected_at": "2026-03-03T20:17:16.863666Z"
+    },
+    "phone": {
+      "value": "5492334535423",
+      "confidence": 0.8,
+      "validation_status": "valid",
+      "collected_at": "2026-03-03T20:17:28.640288Z"
+    }
+  },
+  "total_attempts": 3,
+  "escalated": false,
+  "escalation_reason": null,
+  "steps": [
+    {
+      "step_key": "collecting_information",
+      "status": "in_progress"
+    },
+    {
+      "step_key": "escalation",
+      "status": "pending"
+    }
+  ]
+}

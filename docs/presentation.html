@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>agent1 — Conversational Agent</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text-dim: #8b949e;
+    --cyan: #58a6ff;
+    --magenta: #d2a8ff;
+    --green: #3fb950;
+    --yellow: #d29922;
+    --orange: #f0883e;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+  }
+
+  /* Sticky nav */
+  nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(13, 17, 23, 0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0.6rem 1.5rem;
+    display: flex;
+    gap: 1.5rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  nav a {
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 0.85rem;
+    transition: color 0.2s;
+  }
+  nav a:hover { color: var(--cyan); }
+
+  .container { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+  /* Hero */
+  .hero {
+    text-align: center;
+    padding: 3rem 0 2rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 3rem;
+  }
+  .hero .mascot {
+    font-size: 1.6rem;
+    color: var(--cyan);
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    line-height: 1.3;
+    margin-bottom: 1.5rem;
+    white-space: pre;
+  }
+  .hero h1 { font-size: 2.4rem; font-weight: 700; margin-bottom: 0.3rem; }
+  .hero h1 span { color: var(--cyan); }
+  .hero .subtitle {
+    color: var(--text-dim);
+    font-size: 1.1rem;
+    max-width: 620px;
+    margin: 0 auto;
+  }
+  .hero .badges {
+    margin-top: 1.2rem;
+    display: flex;
+    gap: 0.6rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .badge {
+    display: inline-block;
+    padding: 0.2rem 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: 2rem;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+  }
+
+  /* Sections */
+  section { margin-bottom: 3.5rem; scroll-margin-top: 3rem; }
+  section h2 {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--cyan);
+  }
+  section h3 { font-size: 1.1rem; margin: 1.2rem 0 0.5rem; color: var(--magenta); }
+
+  p { margin-bottom: 0.8rem; color: var(--text-dim); }
+  strong { color: var(--text); }
+  ul { padding-left: 1.5rem; margin-bottom: 1rem; }
+  li { margin-bottom: 0.4rem; color: var(--text-dim); }
+  li strong { color: var(--text); }
+  code {
+    background: var(--bg);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    color: var(--green);
+  }
+
+  /* Cards */
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.2rem;
+  }
+  .card h3 { margin: 0 0 0.5rem; font-size: 1rem; color: var(--cyan); }
+  .card p { font-size: 0.9rem; margin: 0; }
+
+  /* Decision list */
+  .decisions { list-style: none; padding: 0; }
+  .decisions li {
+    background: var(--surface);
+    border-left: 3px solid var(--magenta);
+    padding: 0.8rem 1rem;
+    margin-bottom: 0.6rem;
+    border-radius: 0 6px 6px 0;
+  }
+  .decisions li strong { color: var(--magenta); }
+
+  /* Diagram */
+  .diagram-container {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+    overflow: hidden;
+    position: relative;
+  }
+  .diagram-container svg {
+    transition: transform 0.2s ease;
+    transform-origin: 0 0;
+    cursor: grab;
+  }
+  .diagram-container svg:active {
+    cursor: grabbing;
+  }
+  .zoom-controls {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    display: flex;
+    gap: 0.3rem;
+    z-index: 10;
+  }
+  .zoom-controls button {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    width: 2rem;
+    height: 2rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+  }
+  .zoom-controls button:hover {
+    background: var(--border);
+  }
+  .diagram-container:fullscreen {
+    background: var(--bg);
+    padding: 2rem;
+    overflow: auto;
+  }
+  .diagram-container:fullscreen svg {
+    max-width: none;
+  }
+  .diagram-container .nodeLabel,
+  .diagram-container .edgeLabel,
+  .diagram-container .label,
+  .diagram-container .classLabel .label {
+    color: #fff !important;
+    fill: #fff !important;
+  }
+  .diagram-tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .diagram-tab {
+    padding: 0.6rem 1.2rem;
+    cursor: pointer;
+    color: var(--text-dim);
+    border: none;
+    border-bottom: 2px solid transparent;
+    font-size: 0.9rem;
+    background: none;
+    font-family: inherit;
+    transition: all 0.2s;
+  }
+  .diagram-tab:hover { color: var(--text); }
+  .diagram-tab.active { color: var(--cyan); border-bottom-color: var(--cyan); }
+  .diagram-panel { display: none; overflow: auto; }
+  .diagram-panel.active { display: block; }
+
+  /* Terminal */
+  .terminal {
+    background: #010409;
+    border-radius: 8px;
+    overflow: hidden;
+    margin: 1rem 0;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+  .terminal-header {
+    background: #1c2128;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .terminal-dot {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .terminal-dot.red { background: #ff5f57; }
+  .terminal-dot.yel { background: #febc2e; }
+  .terminal-dot.grn { background: #28c840; }
+  .terminal-title {
+    color: var(--text-dim);
+    font-size: 0.75rem;
+    margin-left: auto;
+    margin-right: auto;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+  }
+  .terminal-body {
+    padding: 16px 20px;
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    color: var(--text);
+    overflow-x: auto;
+    white-space: pre;
+  }
+  .terminal-body .c { color: var(--cyan); }
+  .terminal-body .g { color: var(--green); }
+  .terminal-body .m { color: var(--magenta); }
+  .terminal-body .y { color: var(--yellow); }
+  .terminal-body .d { color: #484f58; }
+  .terminal-body .b { font-weight: 700; }
+
+  /* Flow steps */
+  .flow-steps {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+    margin: 1rem 0;
+  }
+  .flow-step {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+  }
+  .flow-arrow { color: var(--text-dim); font-size: 1.2rem; }
+
+  /* Compact info grid */
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.8rem;
+    margin-top: 1rem;
+  }
+  .info-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.8rem 1rem;
+    font-size: 0.9rem;
+  }
+  .info-item .label { color: var(--text-dim); font-size: 0.8rem; display: block; margin-bottom: 0.2rem; }
+  .info-item .value { color: var(--text); font-weight: 600; }
+
+  footer {
+    text-align: center;
+    padding: 2rem 0;
+    border-top: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 0.85rem;
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="#top">Home</a>
+  <a href="#quickstart">Quick Start</a>
+  <a href="#architecture">Architecture</a>
+  <a href="#diagrams">Diagrams</a>
+  <a href="#decisions">Decisions</a>
+  <a href="#actions">Actions</a>
+  <a href="#demo">Demo</a>
+  <a href="#patterns">Patterns</a>
+  <a href="#testing">Stack</a>
+</nav>
+
+<div class="container">
+
+  <!-- Hero -->
+  <div class="hero" id="top">
+    <div class="mascot">  ╱|、
+ (˚ˎ 。7
+  |、˜〵
+  じしˍ,)ノ</div>
+    <h1><span>agent1</span> — Conversational Agent</h1>
+    <p class="subtitle">
+      A configurable, action-driven conversational agent. All behavior defined in a single JSON file — no code changes needed to create a new agent.
+    </p>
+    <div class="badges">
+      <span class="badge">Python 3.11+</span>
+      <span class="badge">async</span>
+      <span class="badge">CLI</span>
+      <span class="badge">4 example configs</span>
+    </div>
+  </div>
+
+  <!-- Quick Start -->
+  <section id="quickstart">
+    <h2>Quick Start</h2>
+    <div class="terminal">
+      <div class="terminal-header">
+        <span class="terminal-dot red"></span>
+        <span class="terminal-dot yel"></span>
+        <span class="terminal-dot grn"></span>
+        <span class="terminal-title">~/konko_challenge</span>
+      </div>
+      <div class="terminal-body"><span class="d">$</span> python3 -m venv .venv && source .venv/bin/activate
+<span class="d">$</span> pip install -e ".[dev]"
+<span class="d">$</span> cp .env.example .env   <span class="d"># add OPENROUTER_API_KEY</span>
+
+<span class="d"># Run with any config</span>
+<span class="d">$</span> python -m agent --config configs/pizza_place_config.json
+
+<span class="d"># Test mode (no API key needed)</span>
+<span class="d">$</span> python -m agent --config configs/example_config.json --test
+
+<span class="d"># Resume a session</span>
+<span class="d">$</span> python -m agent --config configs/example_config.json --session &lt;id&gt;
+
+<span class="d"># Run tests</span>
+<span class="d">$</span> pytest</div>
+    </div>
+  </section>
+
+  <!-- Architecture -->
+  <section id="architecture">
+    <h2>Architecture</h2>
+    <p>
+      The system follows an <strong>action-driven loop</strong>: the LLM returns structured JSON with an array of actions, and the runtime executes them sequentially against the conversation state.
+    </p>
+    <div class="cards">
+      <div class="card">
+        <h3>Runtime</h3>
+        <p>Orchestrates the full loop: receives user input, builds prompts, calls LLM, parses actions, executes them, persists state. Knows nothing about the CLI.</p>
+      </div>
+      <div class="card">
+        <h3>Config (Pydantic)</h3>
+        <p>Single <code>Config.load(path)</code> validates and loads the entire agent definition. All behavior flows from it.</p>
+      </div>
+      <div class="card">
+        <h3>Structured Output</h3>
+        <p>LLM responses constrained via <code>response_format</code> JSON Schema with <code>"strict": true</code>. No parsing guesswork.</p>
+      </div>
+    </div>
+
+    <h3>Data Flow</h3>
+    <div class="flow-steps">
+      <span class="flow-step">User Input</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">Build Prompt</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">LLM Call</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">Parse Actions</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">Confidence Gate</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">Execute</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">Display</span>
+      <span class="flow-arrow">→</span>
+      <span class="flow-step">Persist State</span>
+    </div>
+  </section>
+
+  <!-- Diagrams -->
+  <section id="diagrams">
+    <h2>Diagrams</h2>
+    <div class="diagram-tabs">
+      <button class="diagram-tab active" onclick="showTab('flow')">Conversation Flow</button>
+      <button class="diagram-tab" onclick="showTab('classes')">Class Diagram</button>
+    </div>
+
+    <div id="flow" class="diagram-panel active">
+      <div class="diagram-container">
+        <div class="zoom-controls">
+          <button onclick="zoomDiagram(this, 1.2)" title="Zoom in">+</button>
+          <button onclick="zoomDiagram(this, 0.8)" title="Zoom out">−</button>
+          <button onclick="resetDiagram(this)" title="Reset">⟲</button>
+          <button onclick="fullscreenDiagram(this)" title="Fullscreen">⛶</button>
+        </div>
+        <pre class="mermaid">
+graph TD
+    Start([User Input]) --> Echo[Echo in scroll area]
+    Echo --> Spinner[Show animated spinner]
+    Spinner --> Prompt[Build system prompt + messages]
+    Prompt --> LLM[LLMClient.ainvoke]
+    LLM --> Tokens[Track tokens]
+    Tokens --> Parse[ActionParser.parse]
+    Parse --> Loop[For each Action]
+    Loop --> Check{collect_field?}
+    Check -->|Yes| Conf{Meets confidence?}
+    Conf -->|No| Skip[Reject + log]
+    Conf -->|Yes| Exec[Execute action]
+    Check -->|No| Exec
+    Exec --> Update[on_state_update — real-time]
+    Skip --> Next{More actions?}
+    Update --> Buffer{Has display text?}
+    Buffer -->|Yes| Store[Buffer message]
+    Buffer -->|No| Next
+    Store --> Next
+    Next -->|Yes| Loop
+    Next -->|No| Display[Display all messages]
+    Display --> Save[Persist state]
+    Save --> Start
+
+    style Start fill:#58a6ff,stroke:#58a6ff,color:#fff
+    style LLM fill:#d2a8ff,stroke:#d2a8ff,color:#fff
+    style Parse fill:#79c0ff,stroke:#79c0ff,color:#fff
+    style Check fill:#1a2740,stroke:#d29922,color:#fff
+    style Conf fill:#1a2740,stroke:#d29922,color:#fff
+    style Next fill:#1a2740,stroke:#d29922,color:#fff
+    style Buffer fill:#1a2740,stroke:#d29922,color:#fff
+    style Skip fill:#f0883e,stroke:#f0883e,color:#fff
+    style Exec fill:#238636,stroke:#3fb950,color:#fff
+    style Display fill:#3fb950,stroke:#3fb950,color:#fff
+    style Save fill:#3fb950,stroke:#3fb950,color:#fff
+        </pre>
+      </div>
+    </div>
+
+    <div id="classes" class="diagram-panel">
+      <div class="diagram-container">
+        <div class="zoom-controls">
+          <button onclick="zoomDiagram(this, 1.2)" title="Zoom in">+</button>
+          <button onclick="zoomDiagram(this, 0.8)" title="Zoom out">−</button>
+          <button onclick="resetDiagram(this)" title="Reset">⟲</button>
+          <button onclick="fullscreenDiagram(this)" title="Fullscreen">⛶</button>
+        </div>
+        <pre class="mermaid">
+classDiagram
+    class Runtime {
+        -_config: Config
+        -_store: StateStore
+        -_llm: LLMClient
+        -_output: OutputHandler
+        +start_session() str
+        +process_message(sid, msg) None
+    }
+
+    class Config {
+        +agent: AgentConfig
+        +personality: PersonalityConfig
+        +fields: list
+        +escalation: EscalationConfig
+        +load(path)$ Config
+    }
+
+    class StateStore {
+        +create(session_id) ConversationState
+        +get(session_id) ConversationState
+        +save(state) None
+        +delete(session_id) None
+    }
+
+    class LLMClient {
+        +ainvoke(messages, response_format) dict
+    }
+
+    class OutputHandler {
+        +on_llm_response(response) None
+        +on_action_start(action_type) None
+        +on_state_update(state) None
+        +display(content) None
+    }
+
+    class ConversationState {
+        +session_id: str
+        +messages: list
+        +collected_fields: dict
+        +steps: list
+        +escalated: bool
+    }
+
+    class Action {
+        +type: str
+        +payload: dict
+        +execute(state) str or None
+    }
+
+    class CLI {
+        +run(runtime) None
+        -_thinking() spinner
+        -_render_status_bar() None
+    }
+
+    class OpenRouterClient {
+        +ainvoke(messages, fmt) dict
+    }
+
+    Runtime o-- Config
+    Runtime o-- StateStore
+    Runtime o-- LLMClient
+    Runtime o-- OutputHandler
+    Runtime ..> ConversationState : manages
+    Runtime ..> Action : executes
+
+    StateStore ..> ConversationState : persists
+    StateStore <|.. MemoryStateStore : implements
+    StateStore <|.. FileStateStore : implements
+
+    LLMClient <|.. OpenRouterClient : implements
+    OutputHandler <|.. CLI : implements
+    CLI o-- Runtime
+
+    Action ..> ConversationState : mutates
+    Action <|-- SendMessageAction
+    Action <|-- CollectFieldAction
+    Action <|-- UpdateStateAction
+    Action <|-- EscalateAction
+        </pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- Key Decisions -->
+  <section id="decisions">
+    <h2>Key Design Decisions</h2>
+    <ul class="decisions">
+      <li><strong>Actions self-execute on state, return <code>str | None</code></strong> — Only <code>SendMessage</code> returns displayable text. Others silently mutate state. The runtime doesn't need to know what each action does.</li>
+      <li><strong>Buffered display output</strong> — All action logs print as they run, but agent messages display only after all actions complete. Prevents interleaved output.</li>
+      <li><strong>Confidence gating at runtime</strong> — Defense-in-depth: the prompt tells the LLM not to collect low-confidence data, but the runtime also rejects <code>collect_field</code> below the configured threshold.</li>
+      <li><strong>Structured Output with strict JSON Schema</strong> — <code>response_format</code> enforces the exact shape at the API level. Graceful fallback if truncated.</li>
+      <li><strong>Steps managed by the LLM, not the runtime</strong> — Steps are high-level flow markers. The LLM infers transitions from context and updates them via <code>update_state</code>.</li>
+      <li><strong>System prompt as interpolated markdown</strong> — Template uses headings, bold, tables for better LLM comprehension. Config values and state injected at call time.</li>
+    </ul>
+  </section>
+
+  <!-- Action Routing -->
+  <section id="actions">
+    <h2>Action Routing</h2>
+    <p>The LLM returns <code>{"actions": [...]}</code> — each with a <code>type</code> and <code>payload</code>. The runtime routes them:</p>
+    <div class="cards">
+      <div class="card">
+        <h3>send_message</h3>
+        <p>Display text to user. Must be last action. Returns the content string.</p>
+      </div>
+      <div class="card">
+        <h3>collect_field</h3>
+        <p>Store a field value with confidence score. Gated by global <code>confidence_threshold</code>.</p>
+      </div>
+      <div class="card">
+        <h3>update_state</h3>
+        <p>Update conversation flow steps (<code>greeting</code> → <code>collecting</code> → <code>escalation</code>).</p>
+      </div>
+      <div class="card">
+        <h3>escalate</h3>
+        <p>Hand off to human agent. Sets <code>escalated=true</code> with a reason.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Demo -->
+  <section id="demo">
+    <h2>Demo</h2>
+    <p>A real conversation with the Pizza Order Assistant agent:</p>
+    <div class="terminal">
+      <div class="terminal-header">
+        <span class="terminal-dot red"></span>
+        <span class="terminal-dot yel"></span>
+        <span class="terminal-dot grn"></span>
+        <span class="terminal-title">agent1 — pizza_place_config.json</span>
+      </div>
+      <div class="terminal-body"><span class="c">  ╱|、</span>        <span class="b">agent1</span> <span class="d">v0.0.1 — nosoul</span>
+<span class="c"> (˚ˎ 。7</span>      <span class="d">openai/gpt-4o-mini</span>
+<span class="c">  |、˜〵</span>       <span class="m b">Pizza Order Assistant</span>
+<span class="c">  じしˍ,)ノ</span>
+
+<span class="c b">Pizza Order Assistant:</span> Hey there! Welcome to our pizza place. 🍕
+<span class="y b">❯</span> I'd like a large pepperoni please, name is Mario
+  <span class="d">executing: collect_field</span>
+  <span class="d">executing: collect_field</span>
+  <span class="d">executing: send_message</span>
+<span class="c b">Pizza Order Assistant:</span> Great choices Mario! A large pepperoni coming up! 🔥
+                        What's your phone number for order updates?
+<span class="y b">❯</span> 555-1234
+  <span class="d">executing: collect_field</span>
+  <span class="d">executing: send_message</span>
+<span class="c b">Pizza Order Assistant:</span> Got it! Delivery or pickup?
+<span class="d">──────────────────────────────────────────────────────────────</span>
+<span class="y b">❯</span> <span class="d">⠹ Thinking...</span>
+<span class="d">name ✓ │ phone ✓ │ type … │ pizza ✓ │ notes … │ tokens: 2,031</span></div>
+    </div>
+  </section>
+
+  <!-- Design Patterns -->
+  <section id="patterns">
+    <h2>Design Patterns</h2>
+    <div class="cards">
+      <div class="card">
+        <h3>Command</h3>
+        <p>Each <code>Action</code> encapsulates an operation. Runtime iterates and executes without knowing the implementation.</p>
+      </div>
+      <div class="card">
+        <h3>Repository</h3>
+        <p><code>StateStore</code> — CRUD-only data access. Memory for tests, file-based for production.</p>
+      </div>
+      <div class="card">
+        <h3>Strategy</h3>
+        <p><code>LLMClient</code> — swap OpenRouter for a test double or another provider.</p>
+      </div>
+      <div class="card">
+        <h3>Observer</h3>
+        <p><code>OutputHandler</code> receives real-time callbacks. Status bar updates after every single action.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Stack -->
+  <section id="testing">
+    <h2>Stack</h2>
+    <div class="info-grid">
+      <div class="info-item"><span class="label">Language</span><span class="value">Python 3.11+</span></div>
+      <div class="info-item"><span class="label">Models</span><span class="value">Pydantic v2</span></div>
+      <div class="info-item"><span class="label">HTTP</span><span class="value">httpx (async)</span></div>
+      <div class="info-item"><span class="label">Terminal UI</span><span class="value">Rich</span></div>
+      <div class="info-item"><span class="label">LLM Provider</span><span class="value">OpenRouter</span></div>
+      <div class="info-item"><span class="label">Tests</span><span class="value">pytest + pytest-asyncio</span></div>
+    </div>
+  </section>
+
+  <footer>
+    agent1 v0.0.1 — nosoul &middot; Python 3.11+ &middot; async
+  </footer>
+
+</div>
+
+<script type="module">
+  console.log('[mermaid] importing module...');
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+  console.log('[mermaid] module loaded, version:', mermaid.mermaidAPI?.version ?? 'unknown');
+
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: 'dark',
+    securityLevel: 'loose',
+    themeVariables: {
+      primaryColor: '#1c2333',
+      primaryTextColor: '#ffffff',
+      primaryBorderColor: '#58a6ff',
+      lineColor: '#58a6ff',
+      secondaryColor: '#1a2740',
+      tertiaryColor: '#1e2a3a',
+      noteBkgColor: '#1c2333',
+      noteTextColor: '#e6edf3',
+      edgeLabelBackground: '#0d1117',
+      clusterBkg: '#161b22',
+      clusterBorder: '#30363d',
+    }
+  });
+  console.log('[mermaid] initialized (startOnLoad: false)');
+
+  // Store original source from each diagram before any rendering
+  const diagramSources = {};
+  document.querySelectorAll('pre.mermaid').forEach(el => {
+    const panel = el.closest('.diagram-panel');
+    if (panel) {
+      diagramSources[panel.id] = el.textContent;
+      console.log(`[mermaid] stored source for panel "${panel.id}" (${el.textContent.length} chars)`);
+    }
+  });
+
+  // Render only the active (visible) panel on load
+  const activePanel = document.querySelector('.diagram-panel.active');
+  if (activePanel) {
+    const nodes = activePanel.querySelectorAll('.mermaid');
+    console.log('[mermaid] rendering active panel:', activePanel.id);
+    await mermaid.run({ nodes });
+    console.log('[mermaid] active panel rendered');
+  }
+
+  // Track which panels have been rendered
+  const rendered = new Set();
+  if (activePanel) rendered.add(activePanel.id);
+
+  window.showTab = function(id) {
+    console.log('[mermaid] switching to tab:', id);
+    document.querySelectorAll('.diagram-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.diagram-panel').forEach(p => p.classList.remove('active'));
+    const panel = document.getElementById(id);
+    panel.classList.add('active');
+    event.target.classList.add('active');
+
+    if (!rendered.has(id) && diagramSources[id]) {
+      console.log('[mermaid] first render for panel:', id);
+      const container = panel.querySelector('.diagram-container');
+      // Re-inject fresh source (mermaid may have mangled the pre on init)
+      container.innerHTML = '<div class="zoom-controls"><button onclick="zoomDiagram(this,1.2)" title="Zoom in">+</button><button onclick="zoomDiagram(this,0.8)" title="Zoom out">−</button><button onclick="resetDiagram(this)" title="Reset">⟲</button><button onclick="fullscreenDiagram(this)" title="Fullscreen">⛶</button></div><pre class="mermaid">' + diagramSources[id] + '</pre>';
+      mermaid.run({ nodes: container.querySelectorAll('.mermaid') }).then(() => {
+        rendered.add(id);
+        console.log('[mermaid] rendered panel:', id);
+      }).catch(err => {
+        console.error('[mermaid] render ERROR for', id, ':', err.message);
+      });
+    }
+  };
+
+  // Zoom, pan & fullscreen
+  const zoomState = new WeakMap();
+
+  function getState(container) {
+    if (!zoomState.has(container)) {
+      zoomState.set(container, { scale: 1, x: 0, y: 0 });
+    }
+    return zoomState.get(container);
+  }
+
+  function applyTransform(container) {
+    const svg = container.querySelector('svg');
+    if (!svg) return;
+    const s = getState(container);
+    svg.style.transform = `translate(${s.x}px, ${s.y}px) scale(${s.scale})`;
+  }
+
+  window.zoomDiagram = function(btn, factor) {
+    const container = btn.closest('.diagram-container');
+    const s = getState(container);
+    s.scale = Math.min(Math.max(s.scale * factor, 0.3), 3);
+    applyTransform(container);
+  };
+
+  window.resetDiagram = function(btn) {
+    const container = btn.closest('.diagram-container');
+    const s = getState(container);
+    s.scale = 1; s.x = 0; s.y = 0;
+    applyTransform(container);
+  };
+
+  window.fullscreenDiagram = function(btn) {
+    const container = btn.closest('.diagram-container');
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      container.requestFullscreen();
+    }
+  };
+
+  // Mouse wheel zoom
+  document.querySelectorAll('.diagram-container').forEach(container => {
+    container.addEventListener('wheel', e => {
+      e.preventDefault();
+      const factor = e.deltaY < 0 ? 1.1 : 0.9;
+      const s = getState(container);
+      s.scale = Math.min(Math.max(s.scale * factor, 0.3), 3);
+      applyTransform(container);
+    }, { passive: false });
+
+    // Drag to pan
+    let dragging = false, startX, startY;
+    container.addEventListener('mousedown', e => {
+      if (e.target.closest('.zoom-controls')) return;
+      dragging = true;
+      const s = getState(container);
+      startX = e.clientX - s.x;
+      startY = e.clientY - s.y;
+    });
+    container.addEventListener('mousemove', e => {
+      if (!dragging) return;
+      const s = getState(container);
+      s.x = e.clientX - startX;
+      s.y = e.clientY - startY;
+      applyTransform(container);
+    });
+    container.addEventListener('mouseup', () => dragging = false);
+    container.addEventListener('mouseleave', () => dragging = false);
+  });
+</script>
+
+</body>
+</html>

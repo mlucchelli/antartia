@@ -1,0 +1,67 @@
+{
+  "session_id": "abc123",
+  "started_at": "2026-02-27T10:00:00Z",
+  "last_activity": "2026-02-27T10:02:15Z",
+
+  "messages": [
+    {
+      "role": "assistant",
+      "content": "Hello! I'm here to help you today. Let's get started!",
+      "timestamp": "2026-02-27T10:00:00Z"
+    },
+    {
+      "role": "user",
+      "content": "Hi, my name is John Smith",
+      "timestamp": "2026-02-27T10:00:30Z"
+    },
+    {
+      "role": "assistant",
+      "content": "Nice to meet you, John! What's your email address?",
+      "timestamp": "2026-02-27T10:00:31Z"
+    },
+    {
+      "role": "user",
+      "content": "john@example.com",
+      "timestamp": "2026-02-27T10:01:00Z"
+    },
+    {
+      "role": "assistant",
+      "content": "Got it! What's your phone number?",
+      "timestamp": "2026-02-27T10:01:01Z"
+    }
+  ],
+
+  "collected_fields": {
+    "name": {
+      "value": "John Smith",
+      "confidence": 0.95,
+      "validation_status": "valid",
+      "collected_at": "2026-02-27T10:00:31Z"
+    },
+    "email": {
+      "value": "john@example.com",
+      "confidence": 0.99,
+      "validation_status": "valid",
+      "collected_at": "2026-02-27T10:01:01Z"
+    }
+  },
+
+  "total_attempts": 2,
+  "escalated": false,
+  "escalation_reason": null,
+
+  "steps": [
+    {
+      "step_key": "greeting",
+      "status": "completed"
+    },
+    {
+      "step_key": "collecting_fields",
+      "status": "in_progress"
+    },
+    {
+      "step_key": "escalation",
+      "status": "pending"
+    }
+  ]
+}

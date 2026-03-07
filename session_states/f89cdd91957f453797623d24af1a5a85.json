@@ -1,0 +1,57 @@
+{
+  "session_id": "f89cdd91957f453797623d24af1a5a85",
+  "started_at": "2026-03-04T16:50:39.217932Z",
+  "last_activity": "2026-03-04T16:51:09.126743Z",
+  "messages": [
+    {
+      "role": "assistant",
+      "content": "Hello! I'm here to help you today. I'll need to collect some information to assist you better. Let's get started!",
+      "timestamp": "2026-03-04T16:50:39.218370Z"
+    },
+    {
+      "role": "user",
+      "content": "yes sure",
+      "timestamp": "2026-03-04T16:50:42.028694Z"
+    },
+    {
+      "role": "assistant",
+      "content": "To begin, could you please provide your full name, including your first and last name?",
+      "timestamp": "2026-03-04T16:50:44.757640Z"
+    },
+    {
+      "role": "user",
+      "content": "mny name is mario\u001b[D",
+      "timestamp": "2026-03-04T16:51:05.698310Z"
+    },
+    {
+      "role": "assistant",
+      "content": "Thank you, Mario! Can you please share your email address?",
+      "timestamp": "2026-03-04T16:51:09.126740Z"
+    }
+  ],
+  "collected_fields": {
+    "name": {
+      "value": "mny name is mario",
+      "confidence": 0.8,
+      "validation_status": "valid",
+      "collected_at": "2026-03-04T16:51:09.126310Z"
+    }
+  },
+  "total_attempts": 0,
+  "escalated": false,
+  "escalation_reason": null,
+  "steps": [
+    {
+      "step_key": "greeting",
+      "status": "completed"
+    },
+    {
+      "step_key": "collecting_information",
+      "status": "in_progress"
+    },
+    {
+      "step_key": "escalation",
+      "status": "pending"
+    }
+  ]
+}

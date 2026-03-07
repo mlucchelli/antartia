@@ -1,0 +1,1171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>agent1 — Session Debugger</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text-dim: #8b949e;
+    --cyan: #58a6ff;
+    --magenta: #d2a8ff;
+    --green: #3fb950;
+    --yellow: #d29922;
+    --orange: #f0883e;
+    --sidebar-w: 340px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ── Layout ── */
+  .app {
+    display: flex;
+    height: 100vh;
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    width: var(--sidebar-w);
+    min-width: var(--sidebar-w);
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .sidebar-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .sidebar-header .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .sidebar-header .mascot {
+    font-size: 0.7rem;
+    color: var(--cyan);
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    line-height: 1.15;
+    white-space: pre;
+  }
+  .sidebar-header h1 {
+    font-size: 1rem;
+    font-weight: 700;
+  }
+  .sidebar-header h1 span { color: var(--cyan); }
+  .sidebar-header .subtitle {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+  }
+
+  /* Search / filter */
+  .sidebar-search {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .sidebar-search input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 10px;
+    color: var(--text);
+    font-size: 0.8rem;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .sidebar-search input:focus { border-color: var(--cyan); }
+  .sidebar-search input::placeholder { color: var(--text-dim); }
+
+  /* Session list */
+  .session-list {
+    flex: 1;
+    overflow-y: auto;
+  }
+  .session-list::-webkit-scrollbar { width: 6px; }
+  .session-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  .session-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 20px;
+    border-bottom: 1px solid rgba(48, 54, 61, 0.4);
+    cursor: pointer;
+    transition: background 0.1s;
+    font-size: 0.8rem;
+  }
+  .session-row:hover { background: rgba(88, 166, 255, 0.04); }
+  .session-row.active { background: rgba(88, 166, 255, 0.08); border-left: 3px solid var(--cyan); padding-left: 17px; }
+  .session-row .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .session-row .dot.ok { background: var(--green); }
+  .session-row .dot.escalated { background: var(--orange); }
+  .session-row .info { flex: 1; min-width: 0; }
+  .session-row .sid {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.78rem;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .session-row .details {
+    display: flex;
+    gap: 8px;
+    color: var(--text-dim);
+    font-size: 0.72rem;
+    margin-top: 2px;
+  }
+  .session-row .ts {
+    color: var(--text-dim);
+    font-size: 0.72rem;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  .sidebar-footer {
+    padding: 10px 20px;
+    border-top: 1px solid var(--border);
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    flex-shrink: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .sidebar-footer .load-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-dim);
+    padding: 3px 8px;
+    font-size: 0.72rem;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+  .sidebar-footer .load-btn:hover { color: var(--cyan); border-color: var(--cyan); }
+
+  /* ── Main Panel ── */
+  .main-panel {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0;
+  }
+  .main-panel::-webkit-scrollbar { width: 6px; }
+  .main-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* Empty state */
+  .empty-main {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-dim);
+    font-size: 0.95rem;
+  }
+
+  /* Detail header */
+  .detail-header {
+    padding: 16px 28px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .detail-header .session-title {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.85rem;
+    color: var(--text);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .detail-header .session-title .icon { color: var(--cyan); }
+
+  /* Badges row */
+  .badges-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 4px;
+    font-size: 0.72rem;
+    font-weight: 500;
+  }
+  .badge.green { background: rgba(63, 185, 80, 0.15); color: var(--green); }
+  .badge.cyan { background: rgba(88, 166, 255, 0.15); color: var(--cyan); }
+  .badge.orange { background: rgba(240, 136, 62, 0.15); color: var(--orange); }
+  .badge.dim { background: rgba(139, 148, 158, 0.1); color: var(--text-dim); }
+
+  /* Tabs */
+  .detail-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    padding: 0 28px;
+    position: sticky;
+    top: 60px;
+    z-index: 9;
+  }
+  .detail-tab {
+    padding: 10px 16px;
+    cursor: pointer;
+    color: var(--text-dim);
+    border: none;
+    border-bottom: 2px solid transparent;
+    font-size: 0.82rem;
+    background: none;
+    font-family: inherit;
+    transition: all 0.15s;
+  }
+  .detail-tab:hover { color: var(--text); }
+  .detail-tab.active { color: var(--cyan); border-bottom-color: var(--cyan); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* Detail body */
+  .detail-body { padding: 20px 28px; }
+
+  /* ── Steps Pipeline ── */
+  .steps-pipeline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+  .step-pill {
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 3px 10px;
+    font-size: 0.75rem;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+  }
+  .step-pill.completed { border-color: var(--green); color: var(--green); }
+  .step-pill.in_progress { border-color: var(--cyan); color: var(--cyan); animation: pulse 2s infinite; }
+  .step-pill.pending { border-color: var(--border); color: var(--text-dim); }
+  .step-arrow { color: var(--text-dim); font-size: 0.9rem; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+  /* ── Metadata Grid ── */
+  .meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  .meta-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 14px;
+  }
+  .meta-item .lbl {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 2px;
+  }
+  .meta-item .val {
+    font-size: 0.82rem;
+    color: var(--text);
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-weight: 500;
+  }
+  .meta-item.warn .val { color: var(--orange); }
+
+  /* ── Chat Messages ── */
+  .chat-section { margin-bottom: 16px; }
+  .chat-section-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-dim);
+    padding: 8px 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .chat-section-label .copy-icon {
+    cursor: pointer;
+    opacity: 0.5;
+    transition: opacity 0.15s;
+    font-size: 0.8rem;
+  }
+  .chat-section-label .copy-icon:hover { opacity: 1; }
+
+  .msg-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin-bottom: 10px;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+    position: relative;
+  }
+  .msg-block.system-msg {
+    border-left: 3px solid var(--magenta);
+  }
+  .msg-block.user-msg {
+    border-left: 3px solid var(--yellow);
+  }
+  .msg-block.assistant-msg {
+    border-left: 3px solid var(--cyan);
+  }
+  .msg-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .msg-role {
+    font-weight: 600;
+    font-size: 0.78rem;
+  }
+  .msg-role.assistant { color: var(--cyan); }
+  .msg-role.user { color: var(--yellow); }
+  .msg-ts {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    font-family: 'SF Mono', 'Fira Code', monospace;
+  }
+  .msg-content {
+    color: var(--text);
+  }
+
+  /* ── Fields Table ── */
+  .fields-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+  }
+  .fields-table th {
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-dim);
+    font-weight: 500;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .fields-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(48, 54, 61, 0.4);
+  }
+  .fields-table tr:hover td { background: rgba(88, 166, 255, 0.03); }
+  .fields-table .field-name {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    color: var(--cyan);
+    font-size: 0.8rem;
+  }
+  .fields-table .field-value {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    color: var(--text);
+  }
+  .confidence-bar {
+    display: inline-block;
+    width: 48px;
+    height: 5px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+    vertical-align: middle;
+    margin-right: 6px;
+  }
+  .confidence-fill { height: 100%; border-radius: 3px; }
+  .conf-high { background: var(--green); }
+  .conf-mid { background: var(--yellow); }
+  .conf-low { background: var(--orange); }
+  .validation-badge {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 3px;
+    font-size: 0.72rem;
+    font-weight: 500;
+  }
+  .validation-badge.valid { background: rgba(63, 185, 80, 0.15); color: var(--green); }
+  .validation-badge.invalid { background: rgba(240, 136, 62, 0.15); color: var(--orange); }
+
+  .empty-state { color: var(--text-dim); font-style: italic; font-size: 0.85rem; padding: 16px 0; }
+
+  /* ── Raw JSON ── */
+  .raw-json-wrap { position: relative; }
+  .raw-json {
+    background: #010409;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px 20px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    overflow: auto;
+    max-height: 70vh;
+    white-space: pre;
+  }
+  .json-key { color: var(--cyan); }
+  .json-string { color: var(--green); }
+  .json-number { color: var(--yellow); }
+  .json-bool { color: var(--magenta); }
+  .json-null { color: var(--magenta); }
+  .copy-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-dim);
+    padding: 3px 10px;
+    font-size: 0.72rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+    z-index: 2;
+  }
+  .copy-btn:hover { color: var(--text); border-color: var(--cyan); }
+
+  /* ── Section Titles ── */
+  .section-title {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+    font-weight: 500;
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="logo">
+        <div class="mascot"> ╱|、
+(˚ˎ 。7
+ |、˜〵
+ じしˍ,)ノ</div>
+        <div>
+          <h1><span>agent1</span></h1>
+          <div class="subtitle">Session Debugger</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar-search">
+      <input type="text" id="search-input" placeholder="Search sessions...">
+    </div>
+
+    <div class="session-list" id="session-list"></div>
+
+    <div class="sidebar-footer">
+      <span id="session-count">0 sessions</span>
+      <button class="load-btn" id="load-btn">+ Load files</button>
+    </div>
+  </aside>
+
+  <!-- Main Panel -->
+  <main class="main-panel" id="main-panel">
+    <div class="empty-main" id="empty-state">Select a session to inspect</div>
+    <div id="detail-view" style="display:none">
+      <!-- Header -->
+      <div class="detail-header" id="detail-header"></div>
+
+      <!-- Tabs -->
+      <div class="detail-tabs" id="detail-tabs">
+        <button class="detail-tab active" data-tab="preview">Preview</button>
+        <button class="detail-tab" data-tab="fields">Fields</button>
+        <button class="detail-tab" data-tab="json">Formatted JSON</button>
+      </div>
+
+      <!-- Preview Tab -->
+      <div id="tab-preview" class="tab-panel active">
+        <div class="detail-body" id="preview-body"></div>
+      </div>
+
+      <!-- Fields Tab -->
+      <div id="tab-fields" class="tab-panel">
+        <div class="detail-body" id="fields-body"></div>
+      </div>
+
+      <!-- JSON Tab -->
+      <div id="tab-json" class="tab-panel">
+        <div class="detail-body">
+          <div class="raw-json-wrap">
+            <button class="copy-btn" id="copy-btn">Copy</button>
+            <pre class="raw-json" id="raw-json"></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<input type="file" id="file-input" multiple accept=".json" style="display:none">
+
+<script>
+// ── Embedded Session Data ──
+const SESSIONS = [
+  {
+    "session_id": "10f5229cbe2a45228759094ee661e1e2",
+    "started_at": "2026-03-04T16:47:25.250778Z",
+    "last_activity": "2026-03-04T16:47:44.190085Z",
+    "messages": [
+      {
+        "role": "assistant",
+        "content": "Hello! I'm here to help you today. I'll need to collect some information to assist you better. Let's get started!",
+        "timestamp": "2026-03-04T16:47:25.251487Z"
+      },
+      {
+        "role": "user",
+        "content": "yes sure",
+        "timestamp": "2026-03-04T16:47:41.478517Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Great! First, could you please provide me with your full name (first and last)?",
+        "timestamp": "2026-03-04T16:47:44.190073Z"
+      }
+    ],
+    "collected_fields": {},
+    "total_attempts": 0,
+    "escalated": false,
+    "escalation_reason": null,
+    "steps": [
+      {
+        "step_key": "greeting",
+        "status": "completed"
+      },
+      {
+        "step_key": "collecting_information",
+        "status": "in_progress"
+      },
+      {
+        "step_key": "escalation",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "session_id": "32d69fda8227478b84bf8a12821efcbd",
+    "started_at": "2026-03-03T20:17:00.707586Z",
+    "last_activity": "2026-03-03T20:17:28.641426Z",
+    "messages": [
+      {
+        "role": "assistant",
+        "content": "Hello! I'm here to help you today. I'll need to collect some information to assist you better. Let's get started!",
+        "timestamp": "2026-03-03T20:17:00.708206Z"
+      },
+      {
+        "role": "user",
+        "content": "sure, my name is mario",
+        "timestamp": "2026-03-03T20:17:04.941983Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Great to meet you, Mario! Could you please provide your email address?",
+        "timestamp": "2026-03-03T20:17:08.803360Z"
+      },
+      {
+        "role": "user",
+        "content": "mario@mario.com",
+        "timestamp": "2026-03-03T20:17:14.021884Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Thank you for that! Now, could you share your phone number with area code?",
+        "timestamp": "2026-03-03T20:17:16.866862Z"
+      },
+      {
+        "role": "user",
+        "content": "5492334535423",
+        "timestamp": "2026-03-03T20:17:25.631531Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Thanks for providing your phone number! Now, could you please give me your complete address, including street, city, state, and zip code?",
+        "timestamp": "2026-03-03T20:17:28.641418Z"
+      }
+    ],
+    "collected_fields": {
+      "name": {
+        "value": "mario",
+        "confidence": 0.9,
+        "validation_status": "valid",
+        "collected_at": "2026-03-03T20:17:08.799147Z"
+      },
+      "email": {
+        "value": "mario@mario.com",
+        "confidence": 0.9,
+        "validation_status": "valid",
+        "collected_at": "2026-03-03T20:17:16.863666Z"
+      },
+      "phone": {
+        "value": "5492334535423",
+        "confidence": 0.8,
+        "validation_status": "valid",
+        "collected_at": "2026-03-03T20:17:28.640288Z"
+      }
+    },
+    "total_attempts": 3,
+    "escalated": false,
+    "escalation_reason": null,
+    "steps": [
+      {
+        "step_key": "collecting_information",
+        "status": "in_progress"
+      },
+      {
+        "step_key": "escalation",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "session_id": "7fd1f148056946c190486ceaf5bac2cc",
+    "started_at": "2026-03-03T13:50:56.709043Z",
+    "last_activity": "2026-03-03T13:51:40.936441Z",
+    "messages": [
+      {
+        "role": "assistant",
+        "content": "Hey there! Welcome to our pizza place. I'm here to help you place your order. Let me grab a few details and we'll get your pizza on the way!",
+        "timestamp": "2026-03-03T13:50:56.710614Z"
+      },
+      {
+        "role": "user",
+        "content": "hola",
+        "timestamp": "2026-03-03T13:50:58.353340Z"
+      },
+      {
+        "role": "assistant",
+        "content": "¡Hola! Ready to talk pizza? 🍕 Let's get your order started! First, what's your name?",
+        "timestamp": "2026-03-03T13:51:01.396510Z"
+      },
+      {
+        "role": "user",
+        "content": "mario",
+        "timestamp": "2026-03-03T13:51:06.404698Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Awesome, Mario! 🍕 Now, can I get your phone number for order updates?",
+        "timestamp": "2026-03-03T13:51:09.080515Z"
+      },
+      {
+        "role": "user",
+        "content": "2235713024",
+        "timestamp": "2026-03-03T13:51:14.037543Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Thanks, Mario! Now, are we doing delivery or pickup for your pizza?",
+        "timestamp": "2026-03-03T13:51:18.333875Z"
+      },
+      {
+        "role": "user",
+        "content": "picup",
+        "timestamp": "2026-03-03T13:51:21.904888Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Perfect, pickup it is! 🍕 Now, what kind of pizza are you craving? Tell me the size and toppings!",
+        "timestamp": "2026-03-03T13:51:24.993453Z"
+      },
+      {
+        "role": "user",
+        "content": "tell the options",
+        "timestamp": "2026-03-03T13:51:31.426700Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Sorry, I had trouble processing that. Could you repeat?",
+        "timestamp": "2026-03-03T13:51:40.936426Z"
+      }
+    ],
+    "collected_fields": {
+      "customer_name": {
+        "value": "mario",
+        "confidence": 1.0,
+        "validation_status": "valid",
+        "collected_at": "2026-03-03T13:51:09.080070Z"
+      },
+      "phone": {
+        "value": "2235713024",
+        "confidence": 1.0,
+        "validation_status": "valid",
+        "collected_at": "2026-03-03T13:51:18.332628Z"
+      },
+      "order_type": {
+        "value": "pickup",
+        "confidence": 1.0,
+        "validation_status": "valid",
+        "collected_at": "2026-03-03T13:51:24.991593Z"
+      }
+    },
+    "total_attempts": 0,
+    "escalated": false,
+    "escalation_reason": null,
+    "steps": [
+      {
+        "step_key": "greeting",
+        "status": "completed"
+      },
+      {
+        "step_key": "collecting_fields",
+        "status": "in_progress"
+      },
+      {
+        "step_key": "escalation",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "session_id": "abc123",
+    "started_at": "2026-02-27T10:00:00Z",
+    "last_activity": "2026-02-27T10:02:15Z",
+    "messages": [
+      {
+        "role": "assistant",
+        "content": "Hello! I'm here to help you today. Let's get started!",
+        "timestamp": "2026-02-27T10:00:00Z"
+      },
+      {
+        "role": "user",
+        "content": "Hi, my name is John Smith",
+        "timestamp": "2026-02-27T10:00:30Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Nice to meet you, John! What's your email address?",
+        "timestamp": "2026-02-27T10:00:31Z"
+      },
+      {
+        "role": "user",
+        "content": "john@example.com",
+        "timestamp": "2026-02-27T10:01:00Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Got it! What's your phone number?",
+        "timestamp": "2026-02-27T10:01:01Z"
+      }
+    ],
+    "collected_fields": {
+      "name": {
+        "value": "John Smith",
+        "confidence": 0.95,
+        "validation_status": "valid",
+        "collected_at": "2026-02-27T10:00:31Z"
+      },
+      "email": {
+        "value": "john@example.com",
+        "confidence": 0.99,
+        "validation_status": "valid",
+        "collected_at": "2026-02-27T10:01:01Z"
+      }
+    },
+    "total_attempts": 2,
+    "escalated": false,
+    "escalation_reason": null,
+    "steps": [
+      {
+        "step_key": "greeting",
+        "status": "completed"
+      },
+      {
+        "step_key": "collecting_fields",
+        "status": "in_progress"
+      },
+      {
+        "step_key": "escalation",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "session_id": "f89cdd91957f453797623d24af1a5a85",
+    "started_at": "2026-03-04T16:50:39.217932Z",
+    "last_activity": "2026-03-04T16:51:09.126743Z",
+    "messages": [
+      {
+        "role": "assistant",
+        "content": "Hello! I'm here to help you today. I'll need to collect some information to assist you better. Let's get started!",
+        "timestamp": "2026-03-04T16:50:39.218370Z"
+      },
+      {
+        "role": "user",
+        "content": "yes sure",
+        "timestamp": "2026-03-04T16:50:42.028694Z"
+      },
+      {
+        "role": "assistant",
+        "content": "To begin, could you please provide your full name, including your first and last name?",
+        "timestamp": "2026-03-04T16:50:44.757640Z"
+      },
+      {
+        "role": "user",
+        "content": "mny name is mario\u001b[D",
+        "timestamp": "2026-03-04T16:51:05.698310Z"
+      },
+      {
+        "role": "assistant",
+        "content": "Thank you, Mario! Can you please share your email address?",
+        "timestamp": "2026-03-04T16:51:09.126740Z"
+      }
+    ],
+    "collected_fields": {
+      "name": {
+        "value": "mny name is mario",
+        "confidence": 0.8,
+        "validation_status": "valid",
+        "collected_at": "2026-03-04T16:51:09.126310Z"
+      }
+    },
+    "total_attempts": 0,
+    "escalated": false,
+    "escalation_reason": null,
+    "steps": [
+      {
+        "step_key": "greeting",
+        "status": "completed"
+      },
+      {
+        "step_key": "collecting_information",
+        "status": "in_progress"
+      },
+      {
+        "step_key": "escalation",
+        "status": "pending"
+      }
+    ]
+  }
+];
+
+// ── State ──
+let sessions = [...SESSIONS];
+let activeSessionId = null;
+let searchFilter = '';
+
+// ── Boot ──
+document.addEventListener('DOMContentLoaded', () => {
+  renderSidebar();
+  bindEvents();
+  // Auto-select first
+  if (sessions.length > 0) selectSession(sessions[0].session_id);
+});
+
+function bindEvents() {
+  // Search
+  document.getElementById('search-input').addEventListener('input', e => {
+    searchFilter = e.target.value.toLowerCase();
+    renderSidebar();
+  });
+
+  // Load more files
+  const fileInput = document.getElementById('file-input');
+  document.getElementById('load-btn').addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', e => {
+    for (const file of e.target.files) {
+      if (!file.name.endsWith('.json')) continue;
+      const r = new FileReader();
+      r.onload = () => {
+        try {
+          const data = JSON.parse(r.result);
+          if (data.session_id && !sessions.find(s => s.session_id === data.session_id)) {
+            sessions.push(data);
+            renderSidebar();
+          }
+        } catch {}
+      };
+      r.readAsText(file);
+    }
+    fileInput.value = '';
+  });
+
+  // Tabs
+  document.getElementById('detail-tabs').addEventListener('click', e => {
+    const tab = e.target.closest('.detail-tab');
+    if (!tab) return;
+    const id = tab.dataset.tab;
+    document.querySelectorAll('.detail-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('tab-' + id).classList.add('active');
+  });
+
+  // Copy
+  document.getElementById('copy-btn').addEventListener('click', () => {
+    const s = sessions.find(s => s.session_id === activeSessionId);
+    if (!s) return;
+    navigator.clipboard.writeText(JSON.stringify(s, null, 2)).then(() => {
+      const btn = document.getElementById('copy-btn');
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = 'Copy', 1200);
+    });
+  });
+}
+
+// ── Sidebar ──
+function renderSidebar() {
+  const list = document.getElementById('session-list');
+  const filtered = sessions.filter(s => {
+    if (!searchFilter) return true;
+    return s.session_id.toLowerCase().includes(searchFilter) ||
+      (s.messages || []).some(m => m.content.toLowerCase().includes(searchFilter));
+  });
+
+  list.innerHTML = filtered.map(s => {
+    const active = s.session_id === activeSessionId;
+    const escalated = s.escalated;
+    const msgCount = (s.messages || []).length;
+    const fieldCount = Object.keys(s.collected_fields || {}).length;
+    const step = getCurrentStep(s);
+    const ts = fmtShortDate(s.started_at);
+
+    return `<div class="session-row ${active ? 'active' : ''}" onclick="selectSession('${s.session_id}')">
+      <span class="dot ${escalated ? 'escalated' : 'ok'}"></span>
+      <div class="info">
+        <div class="sid">${s.session_id}</div>
+        <div class="details">
+          <span>${msgCount} msgs</span>
+          <span>${fieldCount} fields</span>
+          <span>${step || ''}</span>
+        </div>
+      </div>
+      <span class="ts">${ts}</span>
+    </div>`;
+  }).join('');
+
+  document.getElementById('session-count').textContent = sessions.length + ' session' + (sessions.length !== 1 ? 's' : '');
+}
+
+// ── Select & Render ──
+function selectSession(id) {
+  activeSessionId = id;
+  renderSidebar();
+
+  const s = sessions.find(s => s.session_id === id);
+  if (!s) return;
+
+  document.getElementById('empty-state').style.display = 'none';
+  document.getElementById('detail-view').style.display = '';
+
+  renderHeader(s);
+  renderPreview(s);
+  renderFields(s);
+  renderJson(s);
+
+  // Scroll main to top
+  document.getElementById('main-panel').scrollTop = 0;
+}
+window.selectSession = selectSession;
+
+function renderHeader(s) {
+  const el = document.getElementById('detail-header');
+  const fieldCount = Object.keys(s.collected_fields || {}).length;
+  const msgCount = (s.messages || []).length;
+  const step = getCurrentStep(s);
+
+  let badges = '';
+  if (s.escalated) {
+    badges += `<span class="badge orange">Escalated</span>`;
+    if (s.escalation_reason) badges += `<span class="badge orange">${esc(s.escalation_reason)}</span>`;
+  }
+  badges += `<span class="badge dim">${msgCount} messages</span>`;
+  badges += `<span class="badge dim">${fieldCount} fields</span>`;
+  badges += `<span class="badge dim">Attempts: ${s.total_attempts ?? 0}</span>`;
+  if (step) badges += `<span class="badge cyan">${step}</span>`;
+
+  el.innerHTML = `
+    <div class="session-title">
+      <span class="icon">&#9679;</span>
+      <span>${s.session_id}</span>
+    </div>
+    <div style="font-size:0.75rem; color:var(--text-dim); margin-bottom:8px;">
+      ${fmtDatetime(s.started_at)} &mdash; Last activity: ${fmtDatetime(s.last_activity)}
+    </div>
+    <div class="badges-row">${badges}</div>`;
+}
+
+function renderPreview(s) {
+  const body = document.getElementById('preview-body');
+  let html = '';
+
+  // Steps
+  const steps = s.steps || [];
+  if (steps.length > 0) {
+    html += `<div class="section-title">Steps</div>`;
+    html += `<div class="steps-pipeline">`;
+    steps.forEach((st, i) => {
+      const cls = st.status.replace(/\s/g, '_');
+      html += `<span class="step-pill ${cls}">${st.step_key}: ${st.status}</span>`;
+      if (i < steps.length - 1) html += `<span class="step-arrow">&rarr;</span>`;
+    });
+    html += `</div>`;
+  }
+
+  // Messages (Langfuse-style blocks)
+  const msgs = s.messages || [];
+  msgs.forEach(m => {
+    const roleClass = m.role === 'assistant' ? 'assistant-msg' : 'user-msg';
+    html += `
+      <div class="chat-section">
+        <div class="chat-section-label">
+          <span>${m.role.charAt(0).toUpperCase() + m.role.slice(1)}</span>
+          <span class="msg-ts">${fmtTime(m.timestamp)}</span>
+        </div>
+        <div class="msg-block ${roleClass}">
+          <div class="msg-content">${esc(m.content)}</div>
+        </div>
+      </div>`;
+  });
+
+  if (msgs.length === 0) {
+    html += `<p class="empty-state">No messages</p>`;
+  }
+
+  body.innerHTML = html;
+}
+
+function renderFields(s) {
+  const body = document.getElementById('fields-body');
+  const fields = s.collected_fields || {};
+  const keys = Object.keys(fields);
+
+  if (keys.length === 0) {
+    body.innerHTML = '<p class="empty-state">No fields collected yet</p>';
+    return;
+  }
+
+  // Metadata
+  let html = `<div class="meta-grid">`;
+  for (const key of keys) {
+    const f = fields[key];
+    const conf = f.confidence ?? 0;
+    const confPct = Math.round(conf * 100);
+    html += `<div class="meta-item">
+      <div class="lbl">${esc(key)}</div>
+      <div class="val">${esc(String(f.value))}</div>
+    </div>`;
+  }
+  html += `</div>`;
+
+  // Full table
+  html += `<div class="section-title">Details</div>`;
+  html += `<table class="fields-table"><thead><tr>
+    <th>Field</th><th>Value</th><th>Confidence</th><th>Status</th><th>Collected At</th>
+  </tr></thead><tbody>`;
+
+  for (const key of keys) {
+    const f = fields[key];
+    const conf = f.confidence ?? 0;
+    const confCls = conf >= 0.9 ? 'conf-high' : conf >= 0.7 ? 'conf-mid' : 'conf-low';
+    const confPct = Math.round(conf * 100);
+    const vs = f.validation_status || 'valid';
+
+    html += `<tr>
+      <td class="field-name">${esc(key)}</td>
+      <td class="field-value">${esc(String(f.value))}</td>
+      <td><span class="confidence-bar"><span class="confidence-fill ${confCls}" style="width:${confPct}%"></span></span> ${confPct}%</td>
+      <td><span class="validation-badge ${vs}">${vs}</span></td>
+      <td style="color:var(--text-dim)">${fmtTime(f.collected_at)}</td>
+    </tr>`;
+  }
+
+  html += '</tbody></table>';
+  body.innerHTML = html;
+}
+
+function renderJson(s) {
+  document.getElementById('raw-json').innerHTML = syntaxHighlight(JSON.stringify(s, null, 2));
+}
+
+// ── Utilities ──
+function getCurrentStep(s) {
+  const steps = s.steps || [];
+  for (let i = steps.length - 1; i >= 0; i--) {
+    if (steps[i].status !== 'pending') return steps[i].step_key;
+  }
+  return null;
+}
+
+function fmtDatetime(iso) {
+  if (!iso) return '\u2014';
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-CA') + ' ' + d.toLocaleTimeString('en-GB');
+}
+
+function fmtTime(iso) {
+  if (!iso) return '\u2014';
+  return new Date(iso).toLocaleTimeString('en-GB');
+}
+
+function fmtShortDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const h = String(d.getHours()).padStart(2, '0');
+  const min = String(d.getMinutes()).padStart(2, '0');
+  return `${m}-${day} ${h}:${min}`;
+}
+
+function esc(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function syntaxHighlight(json) {
+  return json.replace(/("(\\u[\da-fA-F]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
+    function (match) {
+      let cls = 'json-number';
+      if (/^"/.test(match)) {
+        cls = /:$/.test(match) ? 'json-key' : 'json-string';
+      } else if (/true|false/.test(match)) {
+        cls = 'json-bool';
+      } else if (/null/.test(match)) {
+        cls = 'json-null';
+      }
+      return '<span class="' + cls + '">' + match + '</span>';
+    }
+  );
+}
+</script>
+
+</body>
+</html>

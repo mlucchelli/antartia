@@ -1,0 +1,40 @@
+{
+  "session_id": "10f5229cbe2a45228759094ee661e1e2",
+  "started_at": "2026-03-04T16:47:25.250778Z",
+  "last_activity": "2026-03-04T16:47:44.190085Z",
+  "messages": [
+    {
+      "role": "assistant",
+      "content": "Hello! I'm here to help you today. I'll need to collect some information to assist you better. Let's get started!",
+      "timestamp": "2026-03-04T16:47:25.251487Z"
+    },
+    {
+      "role": "user",
+      "content": "yes sure",
+      "timestamp": "2026-03-04T16:47:41.478517Z"
+    },
+    {
+      "role": "assistant",
+      "content": "Great! First, could you please provide me with your full name (first and last)?",
+      "timestamp": "2026-03-04T16:47:44.190073Z"
+    }
+  ],
+  "collected_fields": {},
+  "total_attempts": 0,
+  "escalated": false,
+  "escalation_reason": null,
+  "steps": [
+    {
+      "step_key": "greeting",
+      "status": "completed"
+    },
+    {
+      "step_key": "collecting_information",
+      "status": "in_progress"
+    },
+    {
+      "step_key": "escalation",
+      "status": "pending"
+    }
+  ]
+}
