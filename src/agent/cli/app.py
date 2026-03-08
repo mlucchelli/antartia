@@ -4,6 +4,7 @@ import asyncio
 import json
 import os
 from contextlib import asynccontextmanager
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 from rich.console import Console
@@ -56,6 +57,7 @@ class CLI:
         self._has_tty = _is_real_terminal()
         self._weather: dict | None = None
         self._last_location: dict | None = None
+        self._location_updated_at: str | None = None
 
     # -- Banner ------------------------------------------------------------
 
@@ -116,6 +118,11 @@ class CLI:
     def on_task_progress(self, message: str) -> None:
         self._console.print(f"  [dim cyan]⟳ {escape(message)}[/dim cyan]")
 
+    def update_location(self, latitude: float, longitude: float) -> None:
+        self._last_location = {"latitude": latitude, "longitude": longitude}
+        self._location_updated_at = datetime.now().strftime("%d-%m-%y %H:%M")
+        self._render_status_bar()
+
     def display(self, content: str) -> None:
         if self._debug and self._last_state:
             raw = json.dumps(self._last_state, indent=2, default=str)
@@ -152,7 +159,10 @@ class CLI:
         if self._last_location:
             lat = self._last_location["latitude"]
             lon = self._last_location["longitude"]
-            parts.append(f"[cyan]{lat:.3f}, {lon:.3f}[/cyan]")
+            loc_str = f"[cyan]{lat:.3f}, {lon:.3f}[/cyan]"
+            if self._location_updated_at:
+                loc_str += f" [dim]at: {self._location_updated_at}[/dim]"
+            parts.append(loc_str)
 
         if self._weather:
             w = self._weather

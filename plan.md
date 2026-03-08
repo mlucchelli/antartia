@@ -555,10 +555,9 @@ python -m agent --config configs/expedition_config.json --session <id>    # resu
 | 16 | CLI status bar: location + weather + precipitation + 5min auto-refresh       | Done        |
 | 17 | ImagePreprocessingService (Pillow EXIF + resize + copy opt) + OllamaVisionClient (qwen2.5vl:7b) structured output (description + summary) | Done        |
 | 18 | PhotoService: scan inbox, preprocess, vision, Ollama significance scoring, DB, move to processed | Done        |
-| 19 | Embedding pipeline + `search_knowledge` / `index_knowledge` actions (ChromaDB + nomic-embed-text) | **Next**    |
-| 20 | Activity log: auto-logging in Runtime + `get_logs` action                    | Planned     |
+| 19 | Embedding pipeline + `search_knowledge` / `index_knowledge` actions (ChromaDB + nomic-embed-text) | Done        |
+| 20 | Activity log: auto-logging in Runtime + `get_logs` action                    | **Next**    |
 | 21 | Distance service: Haversine + `get_distance` action + `timezone` config + status bar `↗ 14.2 km today` | Planned     |
-| 22 | Tests + documentation                                                        | Planned     |
 | 23 | RemoteSyncService: Railway API publishing                                    | Postponed   |
 
 ---

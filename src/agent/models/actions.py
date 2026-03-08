@@ -101,3 +101,11 @@ class SearchKnowledgeAction(ToolAction):
 
 class IndexKnowledgeAction(ToolAction):
     type: str = "index_knowledge"
+
+
+class AddKnowledgeAction(ToolAction):
+    type: str = "add_knowledge"
+
+
+class ClearKnowledgeAction(ToolAction):
+    type: str = "clear_knowledge"

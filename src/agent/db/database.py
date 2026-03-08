@@ -43,6 +43,7 @@ class Database:
         await self._create_tasks_table()
         await self._create_messages_table()
         await self._create_sessions_table()
+        await self._create_knowledge_docs_table()
         await self._conn.commit()
 
     async def _create_locations_table(self) -> None:
@@ -141,5 +142,18 @@ class Database:
                 id            TEXT PRIMARY KEY,
                 started_at    TEXT NOT NULL,
                 last_activity TEXT NOT NULL
+            )
+        """)
+
+    async def _create_knowledge_docs_table(self) -> None:
+        await self._conn.execute("""
+            CREATE TABLE IF NOT EXISTS knowledge_docs (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                file_name   TEXT    NOT NULL UNIQUE,
+                status      TEXT    NOT NULL DEFAULT 'pending',
+                chunk_count INTEGER,
+                error       TEXT,
+                indexed_at  TEXT,
+                created_at  TEXT    NOT NULL
             )
         """)

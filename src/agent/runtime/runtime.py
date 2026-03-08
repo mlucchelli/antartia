@@ -168,6 +168,14 @@ class Runtime:
                     return await self._tool_publish_agent_message(payload)
                 case "publish_weather_snapshot":
                     return await self._tool_publish_weather_snapshot(payload)
+                case "search_knowledge":
+                    return await self._tool_search_knowledge(payload)
+                case "index_knowledge":
+                    return await self._tool_index_knowledge(payload)
+                case "add_knowledge":
+                    return await self._tool_add_knowledge(payload)
+                case "clear_knowledge":
+                    return await self._tool_clear_knowledge(payload)
                 case _:
                     return f"unknown tool: {action_type}"
         except Exception as exc:
@@ -265,3 +273,35 @@ class Runtime:
 
     async def _tool_publish_weather_snapshot(self, payload: dict) -> str:
         return "publish_weather_snapshot not yet implemented"
+
+    async def _tool_search_knowledge(self, payload: dict) -> str:
+        from agent.services.knowledge_service import KnowledgeService
+        query = payload.get("query", "")
+        if not query:
+            return "error: query is required"
+        svc = KnowledgeService(self._config, self._require_db(), self._output)
+        return await svc.search(query)
+
+    async def _tool_index_knowledge(self, payload: dict) -> str:
+        from agent.services.knowledge_service import KnowledgeService
+        svc = KnowledgeService(self._config, self._require_db(), self._output)
+        count = await svc.index_documents()
+        if count == 0:
+            return "inbox is empty — no documents found to index. Drop .txt or .md files into data/knowledge/inbox/ first."
+        return f"indexed {count} chunks successfully"
+
+    async def _tool_add_knowledge(self, payload: dict) -> str:
+        from agent.services.knowledge_service import KnowledgeService
+        content = payload.get("content", "")
+        if not content:
+            return "error: content is required"
+        title = payload.get("title", "expedition_note")
+        svc = KnowledgeService(self._config, self._require_db(), self._output)
+        count = await svc.add_document(content, title)
+        return f"added {count} chunks to knowledge base (title='{title}')"
+
+    async def _tool_clear_knowledge(self, payload: dict) -> str:
+        from agent.services.knowledge_service import KnowledgeService
+        svc = KnowledgeService(self._config, self._require_db(), self._output)
+        await svc.clear()
+        return "knowledge base cleared — vector store and document records wiped"

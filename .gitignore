@@ -4,6 +4,9 @@
 __pycache__/
 .DS_Store
 
+# Log files
+data/agent.log
+
 # SQLite database and WAL files (runtime data)
 data/expedition.db
 data/expedition.db-shm
@@ -18,3 +21,7 @@ data/photos/vision_preview/
 
 # ChromaDB (auto-generated, local only)
 data/knowledge_db/
+
+# Knowledge documents (local only)
+data/knowledge/inbox/
+data/knowledge/processed/

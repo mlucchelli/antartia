@@ -48,13 +48,14 @@ class OllamaClient:
             "stream": False,
             "format": schema if schema else "json",
             "options": {"temperature": self._temperature},
+            "keep_alive": -1,
         }
 
         async with httpx.AsyncClient() as client:
             resp = await client.post(
                 f"{self._base_url}/api/chat",
                 json=body,
-                timeout=120.0,
+                timeout=httpx.Timeout(connect=30.0, read=None, write=30.0, pool=30.0),
             )
             resp.raise_for_status()
 

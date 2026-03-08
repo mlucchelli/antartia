@@ -44,6 +44,14 @@ def main() -> None:
     parser.add_argument("--session", default=None, help="Resume existing session by ID")
     args = parser.parse_args()
 
+    log_file = Path(args.config).parent.parent / "data" / "agent.log"
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s  %(name)s  %(levelname)s  %(message)s",
+        handlers=[
+            logging.FileHandler(log_file),
+        ],
+    )
     # Silence noisy HTTP transport logs
     logging.getLogger("httpcore").setLevel(logging.WARNING)
     logging.getLogger("httpx").setLevel(logging.WARNING)
@@ -85,7 +93,7 @@ async def _run(config, store, llm, cli, session_id: str | None = None) -> None:
         scheduler = Scheduler(config, db, semaphore)
         scheduler.set_task_runner(task_runner)
 
-        http_server = await start_http_server(config, db)
+        http_server = await start_http_server(config, db, output=cli)
 
         scheduler_task = asyncio.create_task(scheduler.run(), name="scheduler")
 

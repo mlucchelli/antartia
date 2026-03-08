@@ -13,7 +13,7 @@ from agent.db.tasks_repo import TasksRepository
 logger = logging.getLogger(__name__)
 
 
-async def _handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, db: Database) -> None:
+async def _handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, db: Database, output=None) -> None:
     try:
         raw = b""
         while True:
@@ -50,10 +50,16 @@ async def _handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, db
         if remaining > 0:
             body += await reader.read(remaining)
 
+        logger.info("POST /locations raw body: %s", body.decode(errors="replace"))
+
         try:
             data = json.loads(body)
-            latitude = float(data["latitude"])
-            longitude = float(data["longitude"])
+            if "location" in data:
+                latitude = float(data["location"]["lat"])
+                longitude = float(data["location"]["lng"])
+            else:
+                latitude = float(data["latitude"])
+                longitude = float(data["longitude"])
             recorded_at_str = data.get("recorded_at")
             if recorded_at_str:
                 recorded_at = datetime.fromisoformat(recorded_at_str.replace("Z", "+00:00"))
@@ -78,6 +84,8 @@ async def _handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, db
         await tasks.insert("process_location", {"location_id": loc["id"]})
 
         logger.info("Location received: lat=%s lon=%s id=%s", latitude, longitude, loc["id"])
+        if output:
+            output.update_location(latitude, longitude)
 
         msg = json.dumps({"status": "ok", "location_id": loc["id"]})
         response = (
@@ -96,12 +104,12 @@ async def _handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, db
         writer.close()
 
 
-async def start_http_server(config: Config, db: Database) -> asyncio.Server:
+async def start_http_server(config: Config, db: Database, output=None) -> asyncio.Server:
     host = config.http_server.host
     port = config.http_server.port
 
     server = await asyncio.start_server(
-        lambda r, w: _handle(r, w, db),
+        lambda r, w: _handle(r, w, db, output),
         host,
         port,
     )

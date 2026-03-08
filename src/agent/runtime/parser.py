@@ -4,6 +4,8 @@ import logging
 
 from agent.models.actions import (
     Action,
+    AddKnowledgeAction,
+    ClearKnowledgeAction,
     CreateTaskAction,
     FinishAction,
     GetLatestLocationsAction,
@@ -39,6 +41,8 @@ ACTION_REGISTRY: dict[str, type[Action]] = {
     "publish_weather_snapshot": PublishWeatherSnapshotAction,
     "search_knowledge": SearchKnowledgeAction,
     "index_knowledge": IndexKnowledgeAction,
+    "add_knowledge": AddKnowledgeAction,
+    "clear_knowledge": ClearKnowledgeAction,
 }
 
 

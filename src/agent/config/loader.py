@@ -85,7 +85,8 @@ class WeatherConfig(BaseModel):
 class KnowledgeConfig(BaseModel):
     embedding_model: str = "nomic-embed-text"
     chroma_dir: str = Field(default_factory=lambda: os.environ["KNOWLEDGE_CHROMA_DIR"])
-    source_dir: str = Field(default_factory=lambda: os.environ["KNOWLEDGE_SOURCE_DIR"])
+    inbox_dir: str = Field(default_factory=lambda: os.environ["KNOWLEDGE_INBOX_DIR"])
+    processed_dir: str = Field(default_factory=lambda: os.environ["KNOWLEDGE_PROCESSED_DIR"])
     collection_name: str = "expedition"
     chunk_size: int = 500
     chunk_overlap: int = 50
@@ -115,6 +116,7 @@ class Config(BaseModel):
     photo_pipeline: PhotoPipelineConfig = Field(default_factory=PhotoPipelineConfig)
     image_preprocessing: ImagePreprocessingConfig = Field(default_factory=ImagePreprocessingConfig)
     weather: WeatherConfig = Field(default_factory=WeatherConfig)
+    knowledge: KnowledgeConfig = Field(default_factory=KnowledgeConfig)
     remote_sync: RemoteSyncConfig = Field(default_factory=RemoteSyncConfig)
 
     @classmethod

@@ -230,7 +230,8 @@ VISION_MIN_DIM=640
 
 # Knowledge base
 KNOWLEDGE_CHROMA_DIR=./data/knowledge_db
-KNOWLEDGE_SOURCE_DIR=./data/knowledge
+KNOWLEDGE_INBOX_DIR=./data/knowledge/inbox
+KNOWLEDGE_PROCESSED_DIR=./data/knowledge/processed
 
 # HTTP server (GPS receiver)
 HTTP_HOST=0.0.0.0
@@ -249,7 +250,7 @@ OPENROUTER_API_KEY=your_key_here
 
 ```bash
 mkdir -p data/photos/inbox data/photos/processed data/photos/vision_preview
-mkdir -p data/knowledge data/knowledge_db
+mkdir -p data/knowledge/inbox data/knowledge/processed data/knowledge_db
 ```
 
 ### 6. Run

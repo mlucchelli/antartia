@@ -130,6 +130,7 @@ class PhotoService:
             "prompt": prompt,
             "stream": False,
             "format": "json",
+            "keep_alive": -1,
         }
 
         try:
