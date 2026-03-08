@@ -255,7 +255,31 @@ mkdir -p data/knowledge data/knowledge_db
 ### 6. Run
 
 ```bash
-python -m agent --config configs/expedition_config.json
+./start_agent.sh
+```
+
+This script:
+1. Checks Ollama is running
+2. Pre-loads all three models into memory with `keep_alive=-1` (they stay loaded permanently — no cold-start delays mid-expedition)
+3. Activates the virtualenv if present
+4. Starts the agent
+
+```bash
+# Optional: pass a different config
+./start_agent.sh configs/expedition_config.json
+```
+
+The HTTP server (GPS receiver) and task scheduler start automatically as part of the agent process — no separate processes needed.
+
+**Keep models loaded manually** (without running the agent):
+
+```bash
+curl -s http://localhost:11434/api/generate -d '{"model":"qwen3.5:9b","keep_alive":-1,"prompt":""}' > /dev/null
+curl -s http://localhost:11434/api/generate -d '{"model":"qwen2.5vl:7b","keep_alive":-1,"prompt":""}' > /dev/null
+curl -s http://localhost:11434/api/generate -d '{"model":"nomic-embed-text","keep_alive":-1,"prompt":""}' > /dev/null
+
+# Verify loaded models:
+ollama ps
 ```
 
 ---
