@@ -64,6 +64,7 @@ class PhotoPipelineConfig(BaseModel):
     ollama_url: str = Field(default_factory=lambda: os.environ["OLLAMA_URL"])
     significance_threshold: float = 0.75
     vision_prompt: str = "This photo was taken during an Antarctic expedition. Describe in detail what you see: landscape, terrain, people, equipment, weather conditions, lighting, and anything noteworthy. Be specific and objective."
+    scoring_prompt: str = "Rate the significance of this Antarctic expedition photo from 0.0 to 1.0. Respond with: {\"significance_score\": <float>}\n\nDescription:\n"
 
 
 class ImagePreprocessingConfig(BaseModel):

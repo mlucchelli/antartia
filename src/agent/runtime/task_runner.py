@@ -81,13 +81,21 @@ class TaskRunner:
             )
 
     async def _scan_photo_inbox(self, payload: dict) -> None:
-        # Full implementation in PhotoService (commit 15)
-        self._progress("scan_photo_inbox: not yet implemented")
+        from agent.services.photo_service import PhotoService
+
+        svc = PhotoService(self._config, self._db, self._output)
+        count = await svc.scan_inbox()
+        self._progress(f"scan_photo_inbox: queued {count} new photo(s) for processing")
 
     async def _process_photo(self, payload: dict) -> None:
-        # Full implementation in PhotoService (commit 15)
-        photo_id = payload.get("photo_id", payload.get("file_path", "?"))
-        self._progress(f"process_photo: id={photo_id} — not yet implemented")
+        from agent.services.photo_service import PhotoService
+
+        photo_id = payload.get("photo_id")
+        if photo_id is None:
+            raise ValueError("process_photo task missing photo_id in payload")
+
+        svc = PhotoService(self._config, self._db, self._output)
+        await svc.process_photo(int(photo_id))
 
     async def _fetch_weather(self, payload: dict) -> None:
         from agent.services.weather_service import WeatherService

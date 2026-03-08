@@ -228,8 +228,21 @@ class Runtime:
         return f"task created: id={task['id']} type={task_type}"
 
     async def _tool_scan_photo_inbox(self, payload: dict) -> str:
-        # Full implementation in PhotoService (commit 15)
-        return "photo inbox scan not yet implemented — available in a later commit"
+        from agent.services.photo_service import PhotoService
+
+        db = self._require_db()
+        svc = PhotoService(self._config, db, self._output)
+        new_count = await svc.scan_inbox()
+
+        # Process all pending photos (newly discovered + any left from previous scans)
+        pending = await PhotosRepository(db).get_all(vision_status="pending")
+        for photo in pending:
+            await svc.process_photo(photo["id"])
+
+        total = len(pending)
+        if new_count == 0 and total == 0:
+            return "inbox is empty — no new or pending photos found"
+        return f"scanned inbox: {new_count} new, {total} processed"
 
     async def _tool_publish_daily_progress(self, payload: dict) -> str:
         # Full implementation in RemoteSyncService (commit 18)

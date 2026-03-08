@@ -129,7 +129,8 @@
 
   "photo_pipeline": {
     "significance_threshold": 0.75,
-    "vision_prompt": "This photo was taken during an Antarctic expedition. Describe in detail what you see: landscape, terrain, people, equipment, weather conditions, lighting, and anything noteworthy. Be specific and objective."
+    "vision_prompt": "This photo was taken during an Antarctic expedition. Describe in detail what you see: landscape, terrain, people, equipment, weather conditions, lighting, and anything noteworthy. Be specific and objective.",
+    "scoring_prompt": "You are evaluating the visual significance of an Antarctic expedition photo. Rate the photo on a scale from 0.0 (completely unremarkable) to 1.0 (exceptional, must share remotely). High scores go to: dramatic weather, unique wildlife encounters, human milestones, striking polar landscapes, scientific activity. Low scores go to: blurry shots, empty sky, featureless terrain. Based on this description, respond with exactly: {\"significance_score\": <float 0.0-1.0>}\n\nDescription:\n"
   },
 
   "image_preprocessing": {
