@@ -322,49 +322,61 @@ graph TD
 
 ## Project Structure
 
+Files marked `[c19]`–`[c24]` are added by the corresponding planned commit.
+
 ```
 src/agent/
 ├── __main__.py              — Entry point: starts CLI + HTTP server + scheduler concurrently
 ├── config/
-│   └── loader.py            — Extended Config: http_server, scheduler, photo_pipeline,
-│                              image_preprocessing, weather, remote_sync, runtime sections
+│   └── loader.py            — Config: agent (+ timezone [c22]), photo_pipeline, image_preprocessing,
+│                              weather, knowledge, remote_sync, http_server, scheduler, db sections
 ├── cli/
-│   └── app.py               — CLI with terminal layout, spinner, task output streaming,
-│                              input disabled during task_running
+│   └── app.py               — Terminal UI: scroll area, spinner, status bar (↗ km today [c21])
 ├── db/
 │   ├── database.py          — aiosqlite connection + init_all_tables()
 │   ├── locations_repo.py    — LocationsRepository (locations table)
 │   ├── photos_repo.py       — PhotosRepository (photos table)
 │   ├── weather_repo.py      — WeatherRepository (weather_snapshots table)
-│   ├── tasks_repo.py        — TasksRepository (tasks table — claim / complete / fail)
-│   └── messages_repo.py     — MessagesRepository (agent_messages table)
+│   ├── tasks_repo.py        — TasksRepository (tasks table — claim / complete / fail, FIFO)
+│   ├── messages_repo.py     — MessagesRepository (agent_messages table)
+│   └── activity_logs_repo.py [c20] — ActivityLogsRepository (activity_logs table)
 ├── http/
-│   └── server.py            — asyncio HTTP server — POST /locations → inserts task
+│   └── server.py            — asyncio HTTP server — POST /locations → GPS insert + task
 ├── llm/
-│   ├── client.py            — LLMClient Protocol (unchanged)
-│   ├── ollama.py            — OllamaClient — text chat + vision (base64 image) via /api/chat
-│   └── prompt_builder.py    — Extended: injects location / weather / task context
+│   ├── client.py            — LLMClient Protocol
+│   ├── ollama.py            — OllamaClient — structured chat via /api/chat
+│   ├── ollama_vision.py     — OllamaVisionClient — base64 image → description + summary
+│   ├── openrouter.py        — OpenRouterClient (cloud fallback)
+│   └── prompt_builder.py    — Builds system + user message context
 ├── models/
-│   ├── actions.py           — 12 action types (11 tools + send_message)
-│   ├── photo.py             — PhotoRecord (mirrors photos table)
+│   ├── actions.py           — 15 actions: 13 ToolAction subclasses + SendMessageAction + FinishAction
+│   │                          tools: get_latest_locations, get_locations_by_date, get_photos,
+│   │                                 get_weather, create_task, scan_photo_inbox,
+│   │                                 search_knowledge, index_knowledge,
+│   │                                 publish_daily_progress, publish_route_snapshot,
+│   │                                 upload_image, publish_agent_message, publish_weather_snapshot
+│   │                          [c20] + get_logs   [c21] + get_distance
+│   ├── photo.py             — PhotoRecord
 │   ├── location.py          — LocationRecord
-│   ├── task.py              — TaskRecord (type, payload, status — no priority, FIFO)
-│   └── state.py             — ConversationState (unchanged)
+│   ├── task.py              — TaskRecord (type, payload, status, created_at)
+│   └── state.py             — ConversationState
 ├── runtime/
-│   ├── runtime.py           — Recursive chaining loop + full RESPONSE_FORMAT schema
-│   ├── scheduler.py         — 60s tick loop — generates weather tasks, FIFO task execution
+│   ├── runtime.py           — Recursive chaining loop + _dispatch_tool + auto-logging [c20]
+│   ├── scheduler.py         — 60s tick loop — weather tasks + FIFO task execution
 │   ├── semaphore.py         — ExecutionSemaphore (idle / user_typing / llm_running / task_running)
 │   ├── task_runner.py       — Dispatches 9 task types to services
-│   ├── parser.py            — Extended ACTION_REGISTRY (12 actions)
-│   └── protocols.py         — OutputHandler Protocol (unchanged)
+│   ├── parser.py            — ACTION_REGISTRY (15 actions; +2 in c20/c21)
+│   └── protocols.py         — OutputHandler Protocol
 ├── services/
-│   ├── photo_service.py     — ImagePreprocessingService + full photo pipeline orchestration
-│   ├── weather_service.py   — Open-Meteo API client (httpx)
-│   ├── knowledge_service.py — ChromaDB + Ollama nomic-embed-text: index + search
-│   └── remote_sync_service.py — Railway API publishing
+│   ├── image_preprocessing.py — EXIF correction + resize + SHA-256
+│   ├── photo_service.py     — scan inbox → preprocess → vision → score → move
+│   ├── weather_service.py   — Open-Meteo ECMWF fetch + DB persistence
+│   ├── knowledge_service.py [c19] — ChromaDB + nomic-embed-text: index + search
+│   ├── distance_service.py  [c21] — Haversine distance from GPS points
+│   └── remote_sync_service.py [c24/postponed] — Railway API publishing
 └── state/
-    ├── store.py             — StateStore Protocol + MemoryStateStore (unchanged)
-    └── file_store.py        — FileStateStore (unchanged)
+    ├── store.py             — StateStore Protocol + MemoryStateStore
+    └── file_store.py        — FileStateStore
 
 configs/
 └── expedition_config.json   — Full expedition agent config
@@ -372,13 +384,11 @@ configs/
 data/
 ├── photos/
 │   ├── inbox/               — Drop new photos here
-│   ├── processed/           — Originals moved here after success
-│   └── vision_preview/      — Derived preview JPEGs
-├── knowledge/               — Drop .txt/.md expedition documents here
-├── knowledge_db/            — ChromaDB persistent storage (auto-created)
-└── expedition.db            — Single SQLite database
-
-
+│   ├── processed/           — Originals moved here after processing
+│   └── vision_preview/      — Derived JPEG previews (for vision model)
+├── knowledge/               — Drop .txt/.md expedition documents here [c19]
+├── knowledge_db/            — ChromaDB persistent storage (auto-created) [c19]
+└── expedition.db            — SQLite database
 ```
 
 ## Key Design Decisions
@@ -467,9 +477,13 @@ All behavior driven by a single JSON file passed via `--config`:
 
 ```json
 {
-  "agent":        { "name", "greeting", "model", "temperature", "max_tokens" },
+  "agent": {
+    "name", "greeting", "model": "qwen3.5:9b", "vision_model": "qwen2.5vl:7b",
+    "temperature", "max_tokens",
+    "timezone": "America/Argentina/Buenos_Aires"  // [c22]
+  },
   "personality":  { "tone", "style", "formality", "emoji_usage", "prompt" },
-  "actions":      { "available": ["...all 12 action definitions..."] },
+  "actions":      { "available": ["...15 action definitions (+ get_logs [c20], get_distance [c21])..."] },
   "system_prompt": { "template", "dynamic_sections" },
   "runtime":      { "max_chain_depth": 6 },
   "http_server":  { "host": "0.0.0.0", "port": 8080 },
@@ -477,16 +491,14 @@ All behavior driven by a single JSON file passed via `--config`:
   "db":           {},
   "photo_pipeline": {
     "significance_threshold": 0.75,
-    "vision_prompt": "You are analyzing a photo from an Antarctic expedition. Describe what you see in detail: the landscape, people, equipment, weather conditions, and anything noteworthy. Be specific and objective."
+    "scoring_prompt": "...",
+    "vision_prompt": "..."
+    // paths from env: PHOTO_INBOX_DIR, PHOTO_PROCESSED_DIR, PHOTO_PREVIEW_DIR, OLLAMA_URL
   },
-  // Paths and URLs come from environment variables:
-  // DB_PATH, PHOTO_INBOX_DIR, PHOTO_PROCESSED_DIR, PHOTO_PREVIEW_DIR
-  // OLLAMA_URL, OLLAMA_VISION_MODEL, HTTP_HOST, HTTP_PORT
-  // REMOTE_SYNC_BASE_URL, REMOTE_SYNC_API_KEY
   "image_preprocessing": {
     "correct_exif_orientation": true,
-    "vision_max_dimension": 1600,
-    "vision_min_dimension": 1280,
+    "vision_max_dimension": 800,
+    "vision_min_dimension": 640,
     "vision_preview_format": "jpeg",
     "vision_preview_quality": 85
   },
@@ -496,20 +508,18 @@ All behavior driven by a single JSON file passed via `--config`:
     "longitude": -58.45,
     "schedule_hours": [6, 12, 18, 0]
   },
-  "knowledge": {
+  "knowledge": {                  // [c19] — paths from env: KNOWLEDGE_CHROMA_DIR, KNOWLEDGE_SOURCE_DIR
     "embedding_model": "nomic-embed-text",
     "collection_name": "expedition",
     "chunk_size": 500,
     "chunk_overlap": 50,
     "n_results": 5
-    // chroma_dir and source_dir from env: KNOWLEDGE_CHROMA_DIR, KNOWLEDGE_SOURCE_DIR
   },
-  "remote_sync": {
-    "base_url": "https://your-railway-app.railway.app",
-    "api_key_env": "REMOTE_SYNC_API_KEY",
+  "remote_sync": {                // [c24/postponed] — from env: REMOTE_SYNC_BASE_URL, REMOTE_SYNC_API_KEY
     "max_images_per_batch": 3,
     "max_images_per_day": 10
   }
+  // DB_PATH, OLLAMA_URL, HTTP_HOST, HTTP_PORT, SCHEDULER_TICK_SECONDS from env
 }
 ```
 
@@ -525,26 +535,196 @@ python -m agent --config configs/expedition_config.json --session <id>    # resu
 
 ## Commit History
 
-| #  | Description                                                                  | Status   |
-|----|------------------------------------------------------------------------------|----------|
-| 1  | Project setup, core models, config loader, schemas                           | Done     |
-| 2  | StateStore, OutputHandler, ActionParser, PromptBuilder                       | Done     |
-| 3  | Runtime orchestrator                                                         | Done     |
-| 4  | CLI interface with test mode                                                 | Done     |
-| 5  | OpenRouter LLM client + system prompt engineering + debug mode               | Done     |
-| 6  | FileStateStore + enhanced CLI (status bar, spinner, terminal layout)         | Done     |
-| 7  | DB layer: aiosqlite + 6 table repos (locations, photos, weather, tasks, messages, sessions) | Done     |
-| 8  | Models: LocationRecord, TaskRecord, PhotoRecord                              | Done     |
-| 9  | Delete old configs + create expedition_config.json                           | Done     |
-| 10 | HTTP server: POST /locations → process_location task                         | Done     |
-| 11 | ExecutionSemaphore + Scheduler (60s tick, weather schedule)                  | Done     |
-| 12 | Semaphore redesign (lock-based typing, 4 states) + FIFO tasks (no priority) + CLI async input + recursive runtime chaining | Done     |
-| 13 | TaskRunner: dispatches all 9 task types + CLI task progress output           | Done     |
-| 14 | OllamaClient + .env loading + provider config + DB wiring + scheduler/HTTP/semaphore all wired in __main__.py | Done     |
-| 15 | WeatherService: Open-Meteo ECMWF full Antarctic fields + DB persistence + get_weather live fetch | Done     |
-| 16 | CLI status bar: location + weather + precipitation + 5min auto-refresh       | Done     |
-| 17 | ImagePreprocessingService (Pillow EXIF + resize + copy opt) + OllamaVisionClient (qwen2.5vl:7b) structured output (description + summary) | Done     |
-| 18 | PhotoService: scan inbox, preprocess, vision, Ollama significance scoring, DB, move to processed | Done     |
-| 19 | Embedding pipeline + `search_knowledge` / `index_knowledge` actions (ChromaDB + nomic-embed-text) | **Next** |
-| 20 | RemoteSyncService: Railway API publishing                                    | Planned  |
-| 21 | Tests + documentation                                                        | Planned  |
+| #  | Description                                                                  | Status      |
+|----|------------------------------------------------------------------------------|-------------|
+| 1  | Project setup, core models, config loader, schemas                           | Done        |
+| 2  | StateStore, OutputHandler, ActionParser, PromptBuilder                       | Done        |
+| 3  | Runtime orchestrator                                                         | Done        |
+| 4  | CLI interface with test mode                                                 | Done        |
+| 5  | OpenRouter LLM client + system prompt engineering + debug mode               | Done        |
+| 6  | FileStateStore + enhanced CLI (status bar, spinner, terminal layout)         | Done        |
+| 7  | DB layer: aiosqlite + 6 table repos (locations, photos, weather, tasks, messages, sessions) | Done        |
+| 8  | Models: LocationRecord, TaskRecord, PhotoRecord                              | Done        |
+| 9  | Delete old configs + create expedition_config.json                           | Done        |
+| 10 | HTTP server: POST /locations → process_location task                         | Done        |
+| 11 | ExecutionSemaphore + Scheduler (60s tick, weather schedule)                  | Done        |
+| 12 | Semaphore redesign (lock-based typing, 4 states) + FIFO tasks (no priority) + CLI async input + recursive runtime chaining | Done        |
+| 13 | TaskRunner: dispatches all 9 task types + CLI task progress output           | Done        |
+| 14 | OllamaClient + .env loading + provider config + DB wiring + scheduler/HTTP/semaphore all wired in __main__.py | Done        |
+| 15 | WeatherService: Open-Meteo ECMWF full Antarctic fields + DB persistence + get_weather live fetch | Done        |
+| 16 | CLI status bar: location + weather + precipitation + 5min auto-refresh       | Done        |
+| 17 | ImagePreprocessingService (Pillow EXIF + resize + copy opt) + OllamaVisionClient (qwen2.5vl:7b) structured output (description + summary) | Done        |
+| 18 | PhotoService: scan inbox, preprocess, vision, Ollama significance scoring, DB, move to processed | Done        |
+| 19 | Embedding pipeline + `search_knowledge` / `index_knowledge` actions (ChromaDB + nomic-embed-text) | **Next**    |
+| 20 | Activity log: auto-logging in Runtime + `get_logs` action                    | Planned     |
+| 21 | Distance service: Haversine + `get_distance` action + status bar `↗ 14.2 km today` | Planned     |
+| 22 | Timezone support: configurable `timezone` field (default `America/Argentina/Buenos_Aires`) | Planned     |
+| 23 | Tests + documentation                                                        | Planned     |
+| 24 | RemoteSyncService: Railway API publishing                                    | Postponed   |
+
+---
+
+## Commit 20 — Activity log: auto-logging + `get_logs` action
+
+### Design decision
+Logging is **infrastructure, not an agent action**. The Runtime automatically writes a log entry to the DB on every `_dispatch_tool()` call — no LLM tokens spent, no coverage gaps. The agent only uses `get_logs` to *read* logs (e.g., before publishing daily progress to know what happened during the day).
+
+### New DB table: `activity_logs`
+
+```sql
+CREATE TABLE activity_logs (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id  TEXT,
+    action_type TEXT NOT NULL,
+    payload     TEXT,          -- JSON, truncated to 500 chars
+    result      TEXT,          -- first 500 chars of tool result
+    created_at  TEXT NOT NULL  -- ISO 8601 UTC
+);
+```
+
+### New files
+
+#### `src/agent/db/activity_logs_repo.py`
+```
+ActivityLogsRepository(db)
+  insert(session_id, action_type, payload, result) → dict
+  get_by_range(from_dt: datetime, to_dt: datetime) → list[dict]
+  get_today(session_id?) → list[dict]
+```
+
+### Changed files
+
+#### `src/agent/db/database.py`
+Add `activity_logs` table to `init_all_tables()`.
+
+#### `src/agent/runtime/runtime.py`
+After every `_dispatch_tool()` returns, insert a log entry:
+```python
+await ActivityLogsRepository(self._db).insert(
+    session_id=session_id,
+    action_type=action_type,
+    payload=json.dumps(payload)[:500],
+    result=result[:500],
+)
+```
+
+#### `src/agent/models/actions.py`
+Add `GetLogsAction(ToolAction)` with `type = "get_logs"`.
+
+#### `src/agent/runtime/parser.py`
+Register `"get_logs": GetLogsAction`.
+
+#### `src/agent/runtime/runtime.py`
+Add `_tool_get_logs(payload)`:
+```python
+async def _tool_get_logs(self, payload: dict) -> str:
+    from_dt = payload.get("from")   # ISO 8601 string
+    to_dt   = payload.get("to")     # ISO 8601 string
+    rows = await ActivityLogsRepository(self._db).get_by_range(from_dt, to_dt)
+    return json.dumps(rows, ensure_ascii=False)
+```
+
+#### `configs/expedition_config.json`
+Add `get_logs` action:
+```json
+{
+  "type": "get_logs",
+  "description": "Retrieve activity log entries for a time range. Use before publishing to summarize what happened during the day.",
+  "parameters": {
+    "payload.from": "ISO 8601 datetime string (UTC)",
+    "payload.to":   "ISO 8601 datetime string (UTC)"
+  }
+}
+```
+
+---
+
+## Commit 21 — Distance service: Haversine + `get_distance` + status bar
+
+### Design
+
+A `DistanceService` utility computes total traversed distance from an ordered list of GPS coordinates using the **Haversine formula**. All consecutive points are summed (no jump filtering — barco/vuelo included). "Today" boundary uses the configured timezone.
+
+### New files
+
+#### `src/agent/services/distance_service.py`
+```
+DistanceService(db, timezone: str)
+  get_today_distance() → float                      # km, rounded to 1 decimal
+  get_distance_for_date(date: str) → float           # km for a specific YYYY-MM-DD (in configured TZ)
+  _haversine(lat1, lon1, lat2, lon2) → float         # km between two points
+  _points_for_date(date_str: str) → list[dict]       # fetches from LocationsRepository ordered by recorded_at
+```
+
+Haversine formula (standard GPS distance):
+```
+a = sin²(Δlat/2) + cos(lat1)·cos(lat2)·sin²(Δlon/2)
+c = 2·atan2(√a, √(1−a))
+d = R·c   where R = 6371 km
+```
+
+### Changed files
+
+#### `src/agent/models/actions.py`
+Add `GetDistanceAction(ToolAction)` with `type = "get_distance"`.
+
+#### `src/agent/runtime/parser.py`
+Register `"get_distance": GetDistanceAction`.
+
+#### `src/agent/runtime/runtime.py`
+Add `_tool_get_distance(payload)`:
+```python
+async def _tool_get_distance(self, payload: dict) -> str:
+    from agent.services.distance_service import DistanceService
+    date = payload.get("date")  # optional YYYY-MM-DD; defaults to today
+    tz = self._config.agent.timezone
+    svc = DistanceService(self._db, tz)
+    if date:
+        km = await svc.get_distance_for_date(date)
+    else:
+        km = await svc.get_today_distance()
+    return f"{km} km"
+```
+
+#### `src/agent/cli/app.py`
+In `_build_status_text()`, call `DistanceService.get_today_distance()` and append `↗ {km} km today` to the status bar.
+
+#### `src/agent/config/loader.py`
+Add `timezone: str` to `AgentConfig`:
+```python
+timezone: str = "America/Argentina/Buenos_Aires"
+```
+
+#### `configs/expedition_config.json`
+Add `"timezone": "America/Argentina/Buenos_Aires"` to the `agent` section.
+Add `get_distance` action:
+```json
+{
+  "type": "get_distance",
+  "description": "Calculate total distance traveled (km) from GPS points. Defaults to today. Pass payload.date (YYYY-MM-DD) for a specific day.",
+  "parameters": {
+    "payload.date": "optional YYYY-MM-DD"
+  }
+}
+```
+
+#### Status bar output example
+```
+abc123 · -62.15, -58.45 · -4.2°C (feels -11.0°C) ❄  ↗ 14.2 km today
+```
+
+### Timezone handling
+- `"today"` boundaries are computed in the configured `timezone` using the `zoneinfo` stdlib module (Python 3.9+)
+- `zoneinfo.ZoneInfo("America/Argentina/Buenos_Aires")` — UTC-3, no DST
+- No new dependency needed (stdlib since 3.9; fallback: `pip install tzdata` on some systems)
+
+```python
+from zoneinfo import ZoneInfo
+from datetime import datetime, timezone as tz
+
+def _today_in_tz(timezone_str: str) -> str:
+    tz_obj = ZoneInfo(timezone_str)
+    return datetime.now(tz=tz_obj).strftime("%Y-%m-%d")
+```
+
+---
