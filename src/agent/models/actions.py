@@ -15,19 +15,30 @@ class Action(BaseModel, ABC):
     async def execute(self, state: ConversationState) -> str | None: ...
 
 
-# ── Final action ──────────────────────────────────────────────────────────────
+# ── Display action (non-terminal) ─────────────────────────────────────────────
 
 class SendMessagePayload(BaseModel):
     content: str
 
 
 class SendMessageAction(Action):
+    """Display text to the user. Does NOT terminate the chain."""
     type: str = "send_message"
 
     async def execute(self, state: ConversationState) -> str | None:
         p = SendMessagePayload.model_validate(self.payload)
         state.add_message("assistant", p.content)
         return p.content
+
+
+# ── Terminal action ────────────────────────────────────────────────────────────
+
+class FinishAction(Action):
+    """Terminates the chain. Use when the response is complete."""
+    type: str = "finish"
+
+    async def execute(self, state: ConversationState) -> str | None:
+        return None
 
 
 # ── Expedition tool actions ───────────────────────────────────────────────────

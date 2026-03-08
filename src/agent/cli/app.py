@@ -101,6 +101,12 @@ class CLI:
         self._last_state = state
         self._render_status_bar()
 
+    def on_llm_start(self, depth: int) -> None:
+        if depth == 0:
+            self._console.print("  [dim cyan]▸ reasoning...[/dim cyan]")
+        else:
+            self._console.print(f"  [dim cyan]▸ reasoning... ({depth})[/dim cyan]")
+
     def on_action_start(self, action_type: str) -> None:
         self._console.print(f"  [dim]executing: {action_type}[/dim]")
 

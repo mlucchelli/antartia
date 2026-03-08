@@ -13,7 +13,7 @@ from agent.db.tasks_repo import TasksRepository, VALID_TASK_TYPES
 from agent.db.weather_repo import WeatherRepository
 from agent.llm.client import LLMClient
 from agent.llm.prompt_builder import PromptBuilder
-from agent.models.actions import SendMessageAction, ToolAction
+from agent.models.actions import FinishAction, SendMessageAction, ToolAction
 from agent.runtime.parser import ActionParser
 from agent.runtime.protocols import OutputHandler
 from agent.state.store import StateStore
@@ -90,42 +90,45 @@ class Runtime:
         max_depth = self._config.runtime.max_chain_depth
 
         for depth in range(max_depth):
+            self._output.on_llm_start(depth)
             response = await self._llm.ainvoke(messages, RESPONSE_FORMAT)
             self._output.on_llm_response(response)
 
             raw_actions = self._extract_actions(response)
             actions = self._parser.parse(raw_actions)
 
-            # Separate tool actions from the final send_message
-            tool_actions = [a for a in actions if isinstance(a, ToolAction)]
-            send_action = next((a for a in actions if isinstance(a, SendMessageAction)), None)
-
-            # Execute tool actions and append results to context
-            for action in tool_actions:
+            # Execute all actions in order
+            finish = False
+            did_something = False
+            for action in actions:
                 self._output.on_action_start(action.type)
-                tool_result = await self._dispatch_tool(action.type, action.payload)
-                messages.append({
-                    "role": "tool",
-                    "content": f"[{action.type} result]: {tool_result}",
-                })
+                if isinstance(action, FinishAction):
+                    finish = True
+                    did_something = True
+                elif isinstance(action, SendMessageAction):
+                    result = await action.execute(state)
+                    self._output.on_state_update(state.model_dump())
+                    if result:
+                        self._output.display(result)
+                    did_something = True
+                elif isinstance(action, ToolAction):
+                    tool_result = await self._dispatch_tool(action.type, action.payload)
+                    messages.append({
+                        "role": "tool",
+                        "content": f"[{action.type} result]: {tool_result}",
+                    })
+                    did_something = True
 
-            # If we have send_message, execute it and stop the chain
-            if send_action:
-                self._output.on_action_start(send_action.type)
-                result = await send_action.execute(state)
-                self._output.on_state_update(state.model_dump())
-                if result:
-                    self._output.display(result)
+            if finish:
                 await self._store.save(state)
                 return
 
-            # No send_message and no tool actions — something went wrong
-            if not tool_actions:
+            if not did_something:
                 logger.warning("No actionable response at depth %d — stopping", depth)
                 break
 
         # Max depth reached or no valid actions — force a fallback
-        logger.warning("Chain ended without send_message — sending fallback")
+        logger.warning("Chain ended without finish — sending fallback")
         fallback = "I've completed the requested operations."
         state.add_message("assistant", fallback)
         await self._store.save(state)

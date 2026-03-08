@@ -5,6 +5,7 @@ import logging
 from agent.models.actions import (
     Action,
     CreateTaskAction,
+    FinishAction,
     GetLatestLocationsAction,
     GetLocationsByDateAction,
     GetPhotosAction,
@@ -22,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 ACTION_REGISTRY: dict[str, type[Action]] = {
     "send_message": SendMessageAction,
+    "finish": FinishAction,
     "get_latest_locations": GetLatestLocationsAction,
     "get_locations_by_date": GetLocationsByDateAction,
     "get_photos": GetPhotosAction,
