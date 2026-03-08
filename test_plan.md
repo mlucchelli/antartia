@@ -219,25 +219,48 @@ sqlite3 data/expedition.db \
 
 ---
 
-## Commit 13 — TaskRunner + CLI task progress
+## Commit 13 — TaskRunner dispatches all 9 task types + CLI progress streaming
 
 ```bash
-python -m agent --config configs/expedition_config.json
+source .venv/bin/activate
 
-# Inject several task types and verify each runs and streams output:
+# 1. Run TaskRunner directly for each task type
+python3 -c "
+import asyncio
+from dotenv import load_dotenv; load_dotenv()
+from agent.config.loader import Config
+from agent.db.database import Database
+from agent.runtime.task_runner import TaskRunner
+
+class PrintOutput:
+    def on_task_progress(self, msg): print('  >', msg)
+    def on_action_start(self, t): pass
+    def on_llm_response(self, r): pass
+    def on_system_prompt(self, p): pass
+    def on_state_update(self, s): pass
+    def display(self, c): pass
+
+async def main():
+    config = Config.load('configs/expedition_config.json')
+    async with Database(config.db.path) as db:
+        runner = TaskRunner(config, db, PrintOutput())
+        for task_type in ['process_location','fetch_weather','scan_photo_inbox']:
+            print(f'--- {task_type} ---')
+            await runner.execute({'id': 0, 'type': task_type, 'payload': {}})
+
+asyncio.run(main())
+"
+
+# 2. Inject a task and watch the scheduler pick it up via the full agent
 sqlite3 data/expedition.db \
-  "INSERT INTO tasks (type, payload, status, priority, created_at) \
-   VALUES ('fetch_weather', '{}', 'pending', 1, datetime('now'));"
-# Watch: input row disabled, step-by-step lines appear in scroll area, input restores
+  \"INSERT INTO tasks (type, payload, status, created_at) \
+   VALUES ('fetch_weather', '{}', 'pending', datetime('now'));\"
 
-# Send a GPS point to trigger process_location task:
-curl -s -X POST http://localhost:8080/locations \
-  -H "Content-Type: application/json" \
-  -d '{"latitude": -62.2, "longitude": -58.5, "recorded_at": "2026-03-07T11:00:00Z"}'
-# Watch: process_location task executes within 5s via scheduler
+# Start agent — within 60s the task runs and progress appears in scroll area
+python3 -m agent --config configs/expedition_config.json
 
-# Verify completed tasks in DB
-sqlite3 data/expedition.db "SELECT type, status FROM tasks ORDER BY id DESC LIMIT 5;"
+# Verify task completed in DB
+sqlite3 data/expedition.db "SELECT type, status, executed_at FROM tasks ORDER BY id DESC LIMIT 3;"
 ```
 
 ---

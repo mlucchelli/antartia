@@ -25,30 +25,6 @@ class PersonalityConfig(BaseModel):
     prompt: str
 
 
-class StepConfig(BaseModel):
-    key: str
-    initial_status: str = "pending"
-
-
-class CollectionConfig(BaseModel):
-    max_attempts: int = 3
-    escalate_on_max_attempts: bool = True
-    confidence_threshold: float = 0.7
-
-
-class FieldConfig(BaseModel):
-    name: str
-    type: str
-    req: bool = True
-    desc: str
-    regex: str | None = None
-    abbr: str | None = None
-
-    @property
-    def display_name(self) -> str:
-        return self.abbr or self.name
-
-
 class ActionDefinition(BaseModel):
     type: str
     description: str
@@ -57,17 +33,6 @@ class ActionDefinition(BaseModel):
 
 class ActionsConfig(BaseModel):
     available: list[ActionDefinition] = Field(default_factory=list)
-
-
-class EscalationPolicyConfig(BaseModel):
-    enabled: bool = True
-    reason: str
-    description: str
-
-
-class EscalationConfig(BaseModel):
-    enabled: bool = True
-    policies: list[EscalationPolicyConfig] = Field(default_factory=list)
 
 
 class SystemPromptConfig(BaseModel):
@@ -85,7 +50,7 @@ class HttpServerConfig(BaseModel):
 
 
 class SchedulerConfig(BaseModel):
-    tick_interval_seconds: int = 5
+    tick_interval_seconds: int = Field(default_factory=lambda: int(os.environ["SCHEDULER_TICK_SECONDS"]))
 
 
 class DbConfig(BaseModel):
@@ -98,7 +63,7 @@ class PhotoPipelineConfig(BaseModel):
     vision_preview_dir: str = Field(default_factory=lambda: os.environ["PHOTO_PREVIEW_DIR"])
     ollama_url: str = Field(default_factory=lambda: os.environ["OLLAMA_URL"])
     significance_threshold: float = 0.75
-    vision_prompt: str = "You are analyzing a photo from an Antarctic expedition. Describe what you see in detail: the landscape, people, equipment, weather conditions, and anything noteworthy. Be specific and objective."
+    vision_prompt: str = "This photo was taken during an Antarctic expedition. Describe in detail what you see: landscape, terrain, people, equipment, weather conditions, lighting, and anything noteworthy. Be specific and objective."
 
 
 class ImagePreprocessingConfig(BaseModel):
@@ -130,11 +95,7 @@ class RemoteSyncConfig(BaseModel):
 class Config(BaseModel):
     agent: AgentConfig
     personality: PersonalityConfig
-    collection: CollectionConfig = Field(default_factory=CollectionConfig)
-    steps: list[StepConfig] = Field(default_factory=list)
-    fields: list[FieldConfig] = Field(default_factory=list)
     actions: ActionsConfig = Field(default_factory=ActionsConfig)
-    escalation: EscalationConfig = Field(default_factory=EscalationConfig)
     system_prompt: SystemPromptConfig
     runtime: RuntimeConfig = Field(default_factory=RuntimeConfig)
     http_server: HttpServerConfig = Field(default_factory=HttpServerConfig)
@@ -146,7 +107,7 @@ class Config(BaseModel):
     remote_sync: RemoteSyncConfig = Field(default_factory=RemoteSyncConfig)
 
     @classmethod
-    def load(cls, path: str | Path) -> Config:
+    def load(cls, path: str | Path) -> "Config":
         path = Path(path)
         with path.open() as f:
             data = json.load(f)
