@@ -557,10 +557,9 @@ python -m agent --config configs/expedition_config.json --session <id>    # resu
 | 18 | PhotoService: scan inbox, preprocess, vision, Ollama significance scoring, DB, move to processed | Done        |
 | 19 | Embedding pipeline + `search_knowledge` / `index_knowledge` actions (ChromaDB + nomic-embed-text) | **Next**    |
 | 20 | Activity log: auto-logging in Runtime + `get_logs` action                    | Planned     |
-| 21 | Distance service: Haversine + `get_distance` action + status bar `↗ 14.2 km today` | Planned     |
-| 22 | Timezone support: configurable `timezone` field (default `America/Argentina/Buenos_Aires`) | Planned     |
-| 23 | Tests + documentation                                                        | Planned     |
-| 24 | RemoteSyncService: Railway API publishing                                    | Postponed   |
+| 21 | Distance service: Haversine + `get_distance` action + `timezone` config + status bar `↗ 14.2 km today` | Planned     |
+| 22 | Tests + documentation                                                        | Planned     |
+| 23 | RemoteSyncService: Railway API publishing                                    | Postponed   |
 
 ---
 
