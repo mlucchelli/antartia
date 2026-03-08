@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>agent1 — Conversational Agent</title>
+<title>Antartia — Antarctic Expedition Agent</title>
 <style>
   :root {
     --bg: #0d1117;
@@ -28,7 +28,6 @@
     line-height: 1.6;
   }
 
-  /* Sticky nav */
   nav {
     position: sticky;
     top: 0;
@@ -42,65 +41,47 @@
     justify-content: center;
     flex-wrap: wrap;
   }
-  nav a {
-    color: var(--text-dim);
-    text-decoration: none;
-    font-size: 0.85rem;
-    transition: color 0.2s;
-  }
+  nav a { color: var(--text-dim); text-decoration: none; font-size: 0.85rem; transition: color 0.2s; }
   nav a:hover { color: var(--cyan); }
 
-  .container { max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem; }
+  .container { max-width: 980px; margin: 0 auto; padding: 2rem 1.5rem; }
 
-  /* Hero */
   .hero {
     text-align: center;
-    padding: 3rem 0 2rem;
+    padding: 3.5rem 0 2.5rem;
     border-bottom: 1px solid var(--border);
     margin-bottom: 3rem;
   }
-  .hero .mascot {
-    font-size: 1.6rem;
-    color: var(--cyan);
+  .hero .tagline {
     font-family: 'SF Mono', 'Fira Code', monospace;
-    line-height: 1.3;
-    margin-bottom: 1.5rem;
-    white-space: pre;
-  }
-  .hero h1 { font-size: 2.4rem; font-weight: 700; margin-bottom: 0.3rem; }
-  .hero h1 span { color: var(--cyan); }
-  .hero .subtitle {
+    font-size: 0.85rem;
     color: var(--text-dim);
-    font-size: 1.1rem;
-    max-width: 620px;
-    margin: 0 auto;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 1rem;
   }
-  .hero .badges {
-    margin-top: 1.2rem;
-    display: flex;
-    gap: 0.6rem;
-    justify-content: center;
-    flex-wrap: wrap;
-  }
+  .hero h1 { font-size: 2.8rem; font-weight: 700; margin-bottom: 0.4rem; }
+  .hero h1 span { color: var(--cyan); }
+  .hero .subtitle { color: var(--text-dim); font-size: 1.05rem; max-width: 640px; margin: 0 auto 1.5rem; }
+  .badges { display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; }
   .badge {
-    display: inline-block;
     padding: 0.2rem 0.8rem;
     border: 1px solid var(--border);
     border-radius: 2rem;
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     color: var(--text-dim);
+    font-family: 'SF Mono', 'Fira Code', monospace;
   }
 
-  /* Sections */
-  section { margin-bottom: 3.5rem; scroll-margin-top: 3rem; }
-  section h2 {
-    font-size: 1.5rem;
+  section { margin-bottom: 3.5rem; scroll-margin-top: 3.5rem; }
+  section > h2 {
+    font-size: 1.45rem;
     margin-bottom: 1rem;
     padding-bottom: 0.5rem;
     border-bottom: 1px solid var(--border);
     color: var(--cyan);
   }
-  section h3 { font-size: 1.1rem; margin: 1.2rem 0 0.5rem; color: var(--magenta); }
+  h3 { font-size: 1.05rem; margin: 1.4rem 0 0.5rem; color: var(--magenta); }
 
   p { margin-bottom: 0.8rem; color: var(--text-dim); }
   strong { color: var(--text); }
@@ -108,17 +89,18 @@
   li { margin-bottom: 0.4rem; color: var(--text-dim); }
   li strong { color: var(--text); }
   code {
-    background: var(--bg);
-    padding: 0.15rem 0.4rem;
+    background: #161b22;
+    border: 1px solid var(--border);
+    padding: 0.1rem 0.4rem;
     border-radius: 4px;
-    font-size: 0.85rem;
+    font-size: 0.83rem;
     color: var(--green);
+    font-family: 'SF Mono', 'Fira Code', monospace;
   }
 
-  /* Cards */
   .cards {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     gap: 1rem;
     margin-top: 1rem;
   }
@@ -128,21 +110,20 @@
     border-radius: 8px;
     padding: 1.2rem;
   }
-  .card h3 { margin: 0 0 0.5rem; font-size: 1rem; color: var(--cyan); }
-  .card p { font-size: 0.9rem; margin: 0; }
+  .card h3 { margin: 0 0 0.5rem; font-size: 0.95rem; color: var(--cyan); }
+  .card p { font-size: 0.88rem; margin: 0; }
 
-  /* Decision list */
   .decisions { list-style: none; padding: 0; }
   .decisions li {
     background: var(--surface);
     border-left: 3px solid var(--magenta);
-    padding: 0.8rem 1rem;
-    margin-bottom: 0.6rem;
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.5rem;
     border-radius: 0 6px 6px 0;
+    font-size: 0.9rem;
   }
-  .decisions li strong { color: var(--magenta); }
+  .decisions li strong { color: var(--magenta); display: block; margin-bottom: 0.2rem; }
 
-  /* Diagram */
   .diagram-container {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -152,83 +133,38 @@
     overflow: hidden;
     position: relative;
   }
-  .diagram-container svg {
-    transition: transform 0.2s ease;
-    transform-origin: 0 0;
-    cursor: grab;
-  }
-  .diagram-container svg:active {
-    cursor: grabbing;
-  }
-  .zoom-controls {
-    position: absolute;
-    top: 0.5rem;
-    right: 0.5rem;
-    display: flex;
-    gap: 0.3rem;
-    z-index: 10;
-  }
+  .diagram-container svg { transition: transform 0.2s ease; transform-origin: 0 0; cursor: grab; }
+  .diagram-container svg:active { cursor: grabbing; }
+  .zoom-controls { position: absolute; top: 0.5rem; right: 0.5rem; display: flex; gap: 0.3rem; z-index: 10; }
   .zoom-controls button {
     background: var(--bg);
     border: 1px solid var(--border);
     color: var(--text);
-    width: 2rem;
-    height: 2rem;
+    width: 2rem; height: 2rem;
     border-radius: 4px;
     cursor: pointer;
     font-size: 1rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: flex; align-items: center; justify-content: center;
     transition: background 0.15s;
   }
-  .zoom-controls button:hover {
-    background: var(--border);
-  }
-  .diagram-container:fullscreen {
-    background: var(--bg);
-    padding: 2rem;
-    overflow: auto;
-  }
-  .diagram-container:fullscreen svg {
-    max-width: none;
-  }
-  .diagram-container .nodeLabel,
-  .diagram-container .edgeLabel,
-  .diagram-container .label,
-  .diagram-container .classLabel .label {
-    color: #fff !important;
-    fill: #fff !important;
-  }
-  .diagram-tabs {
-    display: flex;
-    gap: 0;
-    margin-bottom: 1rem;
-    border-bottom: 1px solid var(--border);
-  }
+  .zoom-controls button:hover { background: var(--border); }
+  .diagram-tabs { display: flex; gap: 0; margin-bottom: 1rem; border-bottom: 1px solid var(--border); }
   .diagram-tab {
-    padding: 0.6rem 1.2rem;
-    cursor: pointer;
-    color: var(--text-dim);
-    border: none;
-    border-bottom: 2px solid transparent;
-    font-size: 0.9rem;
-    background: none;
-    font-family: inherit;
-    transition: all 0.2s;
+    padding: 0.6rem 1.2rem; cursor: pointer; color: var(--text-dim);
+    border: none; border-bottom: 2px solid transparent;
+    font-size: 0.88rem; background: none; font-family: inherit; transition: all 0.2s;
   }
   .diagram-tab:hover { color: var(--text); }
   .diagram-tab.active { color: var(--cyan); border-bottom-color: var(--cyan); }
   .diagram-panel { display: none; overflow: auto; }
   .diagram-panel.active { display: block; }
 
-  /* Terminal */
   .terminal {
     background: #010409;
     border-radius: 8px;
     overflow: hidden;
     margin: 1rem 0;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
   }
   .terminal-header {
     background: #1c2128;
@@ -237,26 +173,16 @@
     align-items: center;
     gap: 8px;
   }
-  .terminal-dot {
-    width: 12px; height: 12px;
-    border-radius: 50%;
-    display: inline-block;
-  }
+  .terminal-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
   .terminal-dot.red { background: #ff5f57; }
   .terminal-dot.yel { background: #febc2e; }
   .terminal-dot.grn { background: #28c840; }
-  .terminal-title {
-    color: var(--text-dim);
-    font-size: 0.75rem;
-    margin-left: auto;
-    margin-right: auto;
-    font-family: 'SF Mono', 'Fira Code', monospace;
-  }
+  .terminal-title { color: var(--text-dim); font-size: 0.75rem; margin: 0 auto; font-family: 'SF Mono', 'Fira Code', monospace; }
   .terminal-body {
     padding: 16px 20px;
     font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
-    font-size: 0.85rem;
-    line-height: 1.6;
+    font-size: 0.83rem;
+    line-height: 1.7;
     color: var(--text);
     overflow-x: auto;
     white-space: pre;
@@ -267,151 +193,296 @@
   .terminal-body .y { color: var(--yellow); }
   .terminal-body .d { color: #484f58; }
   .terminal-body .b { font-weight: 700; }
+  .terminal-body .o { color: var(--orange); }
 
-  /* Flow steps */
-  .flow-steps {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    align-items: center;
-    margin: 1rem 0;
+  .flow {
+    display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 1rem 0;
   }
   .flow-step {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 0.4rem 0.8rem;
-    font-size: 0.85rem;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 6px; padding: 0.4rem 0.8rem; font-size: 0.83rem;
+    font-family: 'SF Mono', 'Fira Code', monospace; color: var(--text);
   }
-  .flow-arrow { color: var(--text-dim); font-size: 1.2rem; }
+  .flow-arrow { color: var(--text-dim); font-size: 1.1rem; }
 
-  /* Compact info grid */
-  .info-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 0.8rem;
-    margin-top: 1rem;
+  .stack-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0.7rem; margin-top: 1rem;
   }
-  .info-item {
+  .stack-item {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 6px; padding: 0.8rem 1rem; font-size: 0.88rem;
+  }
+  .stack-item .label { color: var(--text-dim); font-size: 0.75rem; display: block; margin-bottom: 0.2rem; }
+  .stack-item .value { color: var(--text); font-weight: 600; }
+
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.88rem; }
+  th { text-align: left; padding: 0.5rem 0.75rem; color: var(--text-dim); border-bottom: 1px solid var(--border); font-weight: 500; }
+  td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #21262d; color: var(--text-dim); }
+  td:first-child { color: var(--green); font-family: 'SF Mono', 'Fira Code', monospace; }
+  tr:last-child td { border-bottom: none; }
+
+  /* Data flow visual */
+  .dataflow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 1.2rem 0;
+  }
+  .df-step {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 0.8rem 1rem;
-    font-size: 0.9rem;
+    border-radius: 8px;
+    padding: 0.7rem 1rem;
+    text-align: center;
+    min-width: 110px;
   }
-  .info-item .label { color: var(--text-dim); font-size: 0.8rem; display: block; margin-bottom: 0.2rem; }
-  .info-item .value { color: var(--text); font-weight: 600; }
+  .df-icon { font-size: 1.4rem; margin-bottom: 0.2rem; }
+  .df-label { font-size: 0.85rem; font-weight: 600; color: var(--text); }
+  .df-sub { font-size: 0.72rem; color: var(--text-dim); margin-top: 0.1rem; }
+  .df-input { border-color: var(--cyan); }
+  .df-llm { border-color: var(--magenta); }
+  .df-tool { border-color: var(--green); }
+  .df-finish { border-color: var(--green); background: #0d2119; }
+  .df-lock { border-color: var(--yellow); }
+  .df-arrow { color: var(--text-dim); font-size: 1rem; white-space: nowrap; }
+  .loop-arrow { color: var(--magenta); font-weight: 600; font-size: 0.85rem; }
+
+  /* Semaphore state machine */
+  .state-machine {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    margin: 1.2rem 0;
+    padding: 1.2rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    flex-wrap: wrap;
+  }
+  .state-group { display: flex; flex-direction: column; gap: 0.6rem; flex: 1; }
+  .state-row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+  .state-label { font-size: 0.78rem; color: var(--text-dim); width: 80px; flex-shrink: 0; font-family: 'SF Mono', monospace; }
+  .state {
+    padding: 0.3rem 0.8rem;
+    border-radius: 2rem;
+    font-size: 0.8rem;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    white-space: nowrap;
+  }
+  .state.idle, .state.idle-sm { background: #0d2119; border: 1px solid var(--green); color: var(--green); }
+  .state.typing { background: #1a2740; border: 1px solid var(--cyan); color: var(--cyan); }
+  .state.llm { background: #1e1a2e; border: 1px solid var(--magenta); color: var(--magenta); }
+  .state.task { background: #2a1f0e; border: 1px solid var(--orange); color: var(--orange); }
+  .state.http { background: #1c2128; border: 1px solid var(--border); color: var(--text-dim); font-size: 0.78rem; }
+  .state-arrow { font-size: 0.78rem; color: var(--text-dim); }
 
   footer {
-    text-align: center;
-    padding: 2rem 0;
+    text-align: center; padding: 2rem 0;
     border-top: 1px solid var(--border);
-    color: var(--text-dim);
-    font-size: 0.85rem;
+    color: var(--text-dim); font-size: 0.82rem;
   }
 </style>
 </head>
 <body>
 
 <nav>
-  <a href="#top">Home</a>
-  <a href="#quickstart">Quick Start</a>
+  <a href="#top">Overview</a>
   <a href="#architecture">Architecture</a>
-  <a href="#diagrams">Diagrams</a>
+  <a href="#semaphore">Semaphore</a>
+  <a href="#photo">Photo Pipeline</a>
+  <a href="#knowledge">Knowledge</a>
+  <a href="#diagrams">Diagrams &amp; Classes</a>
   <a href="#decisions">Decisions</a>
   <a href="#actions">Actions</a>
   <a href="#demo">Demo</a>
-  <a href="#patterns">Patterns</a>
-  <a href="#testing">Stack</a>
+  <a href="#stack">Stack</a>
 </nav>
 
 <div class="container">
 
   <!-- Hero -->
   <div class="hero" id="top">
-    <div class="mascot">  ╱|、
- (˚ˎ 。7
-  |、˜〵
-  じしˍ,)ノ</div>
-    <h1><span>agent1</span> — Conversational Agent</h1>
+    <div class="tagline">Antarctic Expedition Agent</div>
+    <h1><span>Antartia</span></h1>
     <p class="subtitle">
-      A configurable, action-driven conversational agent. All behavior defined in a single JSON file — no code changes needed to create a new agent.
+      An autonomous AI field agent that tracks an Antarctic expedition in real time — GPS, weather, photos, and knowledge — driven entirely by a local LLM through recursive tool chaining.
     </p>
     <div class="badges">
       <span class="badge">Python 3.11+</span>
-      <span class="badge">async</span>
-      <span class="badge">CLI</span>
-      <span class="badge">4 example configs</span>
+      <span class="badge">asyncio</span>
+      <span class="badge">Ollama</span>
+      <span class="badge">qwen2.5vl:7b</span>
+      <span class="badge">ChromaDB</span>
+      <span class="badge">SQLite</span>
     </div>
   </div>
-
-  <!-- Quick Start -->
-  <section id="quickstart">
-    <h2>Quick Start</h2>
-    <div class="terminal">
-      <div class="terminal-header">
-        <span class="terminal-dot red"></span>
-        <span class="terminal-dot yel"></span>
-        <span class="terminal-dot grn"></span>
-        <span class="terminal-title">~/konko_challenge</span>
-      </div>
-      <div class="terminal-body"><span class="d">$</span> python3 -m venv .venv && source .venv/bin/activate
-<span class="d">$</span> pip install -e ".[dev]"
-<span class="d">$</span> cp .env.example .env   <span class="d"># add OPENROUTER_API_KEY</span>
-
-<span class="d"># Run with any config</span>
-<span class="d">$</span> python -m agent --config configs/pizza_place_config.json
-
-<span class="d"># Test mode (no API key needed)</span>
-<span class="d">$</span> python -m agent --config configs/example_config.json --test
-
-<span class="d"># Resume a session</span>
-<span class="d">$</span> python -m agent --config configs/example_config.json --session &lt;id&gt;
-
-<span class="d"># Run tests</span>
-<span class="d">$</span> pytest</div>
-    </div>
-  </section>
 
   <!-- Architecture -->
   <section id="architecture">
     <h2>Architecture</h2>
     <p>
-      The system follows an <strong>action-driven loop</strong>: the LLM returns structured JSON with an array of actions, and the runtime executes them sequentially against the conversation state.
+      Everything runs on a single asyncio event loop. The LLM decides what to do through <strong>recursive tool chaining</strong> — it emits actions, the runtime executes them and appends results to context, then the LLM is re-invoked. This repeats until <code>finish</code>.
     </p>
+
     <div class="cards">
       <div class="card">
-        <h3>Runtime</h3>
-        <p>Orchestrates the full loop: receives user input, builds prompts, calls LLM, parses actions, executes them, persists state. Knows nothing about the CLI.</p>
+        <h3>Recursive Tool Chaining</h3>
+        <p>LLM emits actions → tools execute → results appended to context → LLM re-invoked. Up to <code>max_chain_depth = 6</code>. No hardcoded orchestration.</p>
       </div>
       <div class="card">
-        <h3>Config (Pydantic)</h3>
-        <p>Single <code>Config.load(path)</code> validates and loads the entire agent definition. All behavior flows from it.</p>
+        <h3>Execution Semaphore</h3>
+        <p>Single <code>asyncio.Lock</code> coordinates CLI, scheduler, and task runner. Four states: <code>idle → user_typing → llm_running → idle</code>. HTTP server never touches it.</p>
       </div>
       <div class="card">
-        <h3>Structured Output</h3>
-        <p>LLM responses constrained via <code>response_format</code> JSON Schema with <code>"strict": true</code>. No parsing guesswork.</p>
+        <h3>All-Local Inference</h3>
+        <p>Ollama serves all models locally. <code>qwen2.5vl:7b</code> for vision, text model for chat and scoring, <code>nomic-embed-text</code> for embeddings. No GPU required.</p>
+      </div>
+      <div class="card">
+        <h3>DB-Backed Tasks</h3>
+        <p>Tasks persist in SQLite (<code>tasks</code> table). FIFO ordering. Survive restarts. Scheduler claims the oldest pending task each 60s tick.</p>
+      </div>
+      <div class="card">
+        <h3>HTTP GPS Ingestion</h3>
+        <p><code>POST /locations</code> from iPhone Shortcut. Asyncio server, no framework. Never acquires the semaphore — GPS always recorded immediately.</p>
+      </div>
+      <div class="card">
+        <h3>Protocol-Based</h3>
+        <p><code>LLMClient</code>, <code>StateStore</code>, <code>OutputHandler</code> are Python Protocols. Ollama, OpenRouter, memory store, file store — all swappable.</p>
       </div>
     </div>
 
-    <h3>Data Flow</h3>
-    <div class="flow-steps">
-      <span class="flow-step">User Input</span>
-      <span class="flow-arrow">→</span>
-      <span class="flow-step">Build Prompt</span>
-      <span class="flow-arrow">→</span>
-      <span class="flow-step">LLM Call</span>
-      <span class="flow-arrow">→</span>
-      <span class="flow-step">Parse Actions</span>
-      <span class="flow-arrow">→</span>
-      <span class="flow-step">Confidence Gate</span>
-      <span class="flow-arrow">→</span>
-      <span class="flow-step">Execute</span>
-      <span class="flow-arrow">→</span>
-      <span class="flow-step">Display</span>
-      <span class="flow-arrow">→</span>
-      <span class="flow-step">Persist State</span>
+    <h3>Data flow</h3>
+    <div class="dataflow">
+      <div class="df-step df-input"><div class="df-icon">⌨</div><div class="df-label">User Input</div><div class="df-sub">or scheduled task</div></div>
+      <div class="df-arrow">→</div>
+      <div class="df-step df-lock"><div class="df-icon">🔒</div><div class="df-label">Acquire Semaphore</div><div class="df-sub">lock held throughout</div></div>
+      <div class="df-arrow">→</div>
+      <div class="df-step df-prompt"><div class="df-icon">📝</div><div class="df-label">Build Prompt</div><div class="df-sub">system + history + tools</div></div>
+      <div class="df-arrow">→</div>
+      <div class="df-step df-llm"><div class="df-icon">🧠</div><div class="df-label">LLM Invoke</div><div class="df-sub">Ollama structured output</div></div>
+      <div class="df-arrow">→</div>
+      <div class="df-step df-parse"><div class="df-icon">⚙</div><div class="df-label">Parse Actions</div><div class="df-sub">ActionParser → list</div></div>
+      <div class="df-arrow loop-arrow">↺ loop until finish</div>
+      <div class="df-step df-tool"><div class="df-icon">🔧</div><div class="df-label">Execute Tools</div><div class="df-sub">dispatch → append result</div></div>
+      <div class="df-arrow">→</div>
+      <div class="df-step df-finish"><div class="df-icon">✓</div><div class="df-label">Finish</div><div class="df-sub">save state · release lock</div></div>
     </div>
+  </section>
+
+  <!-- Semaphore -->
+  <section id="semaphore">
+    <h2>Execution Semaphore</h2>
+    <p>
+      A single <code>asyncio.Lock</code> with explicit state labels governs every heavy operation. The CLI acquires the lock <em>before</em> showing the <code>❯</code> prompt and holds it through the entire agent reply. The scheduler gets at most one window between turns.
+    </p>
+
+    <div class="state-machine">
+      <div class="state idle">idle</div>
+      <div class="state-group">
+        <div class="state-row">
+          <span class="state-label">CLI</span>
+          <div class="state typing">user_typing</div>
+          <span class="state-arrow">→ Enter →</span>
+          <div class="state llm">llm_running</div>
+          <span class="state-arrow">→ finish →</span>
+          <div class="state idle-sm">idle</div>
+        </div>
+        <div class="state-row">
+          <span class="state-label">Scheduler</span>
+          <div class="state task">task_running</div>
+          <span class="state-arrow">→ done →</span>
+          <div class="state idle-sm">idle</div>
+        </div>
+        <div class="state-row http-row">
+          <span class="state-label">HTTP server</span>
+          <div class="state http">always running — never acquires lock</div>
+        </div>
+      </div>
+    </div>
+
+    <p>
+      While a background task runs, the CLI waits at <code>acquire_typing()</code> — the <code>❯</code> prompt is blocked and a spinner is shown. Task progress streams to the scroll area via <code>on_task_progress()</code>.
+    </p>
+  </section>
+
+  <!-- Photo Pipeline -->
+  <section id="photo">
+    <h2>Photo Pipeline</h2>
+    <p>
+      Photos dropped into <code>data/photos/inbox/</code> are processed inline when the LLM calls <code>scan_photo_inbox</code>, or asynchronously when the scheduler picks up a <code>process_photo</code> task.
+    </p>
+
+    <div class="flow" style="flex-direction: column; align-items: flex-start; gap: 0.4rem;">
+      <div style="display:flex; align-items:center; gap:0.5rem">
+        <span class="flow-step">inbox/photo.jpg</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-step">ImagePreprocessingService</span>
+        <span style="color:var(--text-dim); font-size:0.82rem">EXIF correction · resize 640–800px · SHA-256</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:0.5rem">
+        <span class="flow-step">vision_preview/photo_preview.jpg</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-step">OllamaVisionClient</span>
+        <span style="color:var(--text-dim); font-size:0.82rem">qwen2.5vl:7b · base64 → {description, summary}</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:0.5rem">
+        <span class="flow-step">description</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-step">_score_significance()</span>
+        <span style="color:var(--text-dim); font-size:0.82rem">Ollama text call → significance_score 0.0–1.0</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:0.5rem">
+        <span class="flow-step">score ≥ 0.75?</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-step">is_remote_candidate = true</span>
+        <span style="color:var(--text-dim); font-size:0.82rem">eligible for upload to expedition website</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:0.5rem">
+        <span class="flow-step">original</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-step">processed/photo.jpg</span>
+        <span style="color:var(--text-dim); font-size:0.82rem">moved, never modified</span>
+      </div>
+    </div>
+
+    <p>
+      The significance scoring prompt is configurable via <code>photo_pipeline.scoring_prompt</code> in the expedition config — no code changes needed to tune the threshold criteria.
+    </p>
+  </section>
+
+  <!-- Knowledge Base -->
+  <section id="knowledge">
+    <h2>Knowledge Base</h2>
+    <p>
+      A local ChromaDB instance stores semantic embeddings of expedition documents — itinerary, species guides, ship specs, location context, science notes. The LLM can query it via <code>search_knowledge</code> before answering field questions.
+    </p>
+
+    <div class="flow" style="flex-direction: column; align-items: flex-start; gap: 0.4rem;">
+      <div style="display:flex; align-items:center; gap:0.5rem">
+        <span class="flow-step">data/knowledge/*.txt|*.md</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-step">chunk ~500 chars</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-step">Ollama /api/embed</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-step">ChromaDB upsert</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:0.5rem">
+        <span class="flow-step">search_knowledge query</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-step">embed query</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-step">top-5 chunks</span>
+        <span class="flow-arrow">→</span>
+        <span class="flow-step">tool result → LLM context</span>
+      </div>
+    </div>
+
+    <p>
+      No server required. ChromaDB runs embedded and persists to <code>data/knowledge_db/</code>. Embedding model: <code>nomic-embed-text</code> (274 MB) via the same Ollama instance already running for vision and chat.
+    </p>
   </section>
 
   <!-- Diagrams -->
@@ -419,53 +490,118 @@
     <h2>Diagrams</h2>
     <div class="diagram-tabs">
       <button class="diagram-tab active" onclick="showTab('flow')">Conversation Flow</button>
+      <button class="diagram-tab" onclick="showTab('pipeline')">Photo Pipeline</button>
+      <button class="diagram-tab" onclick="showTab('semaphore')">Semaphore</button>
       <button class="diagram-tab" onclick="showTab('classes')">Class Diagram</button>
     </div>
 
     <div id="flow" class="diagram-panel active">
       <div class="diagram-container">
         <div class="zoom-controls">
-          <button onclick="zoomDiagram(this, 1.2)" title="Zoom in">+</button>
-          <button onclick="zoomDiagram(this, 0.8)" title="Zoom out">−</button>
-          <button onclick="resetDiagram(this)" title="Reset">⟲</button>
-          <button onclick="fullscreenDiagram(this)" title="Fullscreen">⛶</button>
+          <button onclick="zoomDiagram(this,1.2)">+</button>
+          <button onclick="zoomDiagram(this,0.8)">−</button>
+          <button onclick="resetDiagram(this)">⟲</button>
+          <button onclick="fullscreenDiagram(this)">⛶</button>
         </div>
         <pre class="mermaid">
 graph TD
-    Start([User Input]) --> Echo[Echo in scroll area]
-    Echo --> Spinner[Show animated spinner]
-    Spinner --> Prompt[Build system prompt + messages]
-    Prompt --> LLM[LLMClient.ainvoke]
-    LLM --> Tokens[Track tokens]
-    Tokens --> Parse[ActionParser.parse]
-    Parse --> Loop[For each Action]
-    Loop --> Check{collect_field?}
-    Check -->|Yes| Conf{Meets confidence?}
-    Conf -->|No| Skip[Reject + log]
-    Conf -->|Yes| Exec[Execute action]
-    Check -->|No| Exec
-    Exec --> Update[on_state_update — real-time]
-    Skip --> Next{More actions?}
-    Update --> Buffer{Has display text?}
-    Buffer -->|Yes| Store[Buffer message]
-    Buffer -->|No| Next
-    Store --> Next
-    Next -->|Yes| Loop
-    Next -->|No| Display[Display all messages]
-    Display --> Save[Persist state]
-    Save --> Start
+    Input([User message / Scheduler task / HTTP GPS]) --> Acquire[Acquire semaphore]
+    Acquire --> Build[Build system prompt + message history]
+    Build --> LLM[LLMClient.ainvoke]
+    LLM --> Parse[ActionParser.parse → list of actions]
+    Parse --> Loop[Execute each action in order]
 
-    style Start fill:#58a6ff,stroke:#58a6ff,color:#fff
+    Loop --> IsFinish{action == finish?}
+    IsFinish -->|Yes| Save[Save state → release semaphore]
+    IsFinish -->|No| IsSend{action == send_message?}
+    IsSend -->|Yes| Display[Display to terminal]
+    Display --> Continue[Continue to next action]
+    IsSend -->|No| Tool[_dispatch_tool → execute + get result]
+    Tool --> Append[Append result as tool role message]
+    Append --> Continue
+    Continue --> MoreActions{More actions?}
+    MoreActions -->|Yes| Loop
+    MoreActions -->|No| DepthCheck{depth < 6?}
+    DepthCheck -->|Yes| LLM
+    DepthCheck -->|No| Fallback[Force finish — fallback message]
+    Fallback --> Save
+
+    style Input fill:#58a6ff,stroke:#58a6ff,color:#fff
     style LLM fill:#d2a8ff,stroke:#d2a8ff,color:#fff
-    style Parse fill:#79c0ff,stroke:#79c0ff,color:#fff
-    style Check fill:#1a2740,stroke:#d29922,color:#fff
-    style Conf fill:#1a2740,stroke:#d29922,color:#fff
-    style Next fill:#1a2740,stroke:#d29922,color:#fff
-    style Buffer fill:#1a2740,stroke:#d29922,color:#fff
-    style Skip fill:#f0883e,stroke:#f0883e,color:#fff
-    style Exec fill:#238636,stroke:#3fb950,color:#fff
-    style Display fill:#3fb950,stroke:#3fb950,color:#fff
-    style Save fill:#3fb950,stroke:#3fb950,color:#fff
+    style Tool fill:#3fb950,stroke:#3fb950,color:#fff
+    style Display fill:#f0883e,stroke:#f0883e,color:#fff
+    style Save fill:#238636,stroke:#3fb950,color:#fff
+    style Fallback fill:#da3633,stroke:#f85149,color:#fff
+        </pre>
+      </div>
+    </div>
+
+    <div id="pipeline" class="diagram-panel">
+      <div class="diagram-container">
+        <div class="zoom-controls">
+          <button onclick="zoomDiagram(this,1.2)">+</button>
+          <button onclick="zoomDiagram(this,0.8)">−</button>
+          <button onclick="resetDiagram(this)">⟲</button>
+          <button onclick="fullscreenDiagram(this)">⛶</button>
+        </div>
+        <pre class="mermaid">
+graph TD
+    Inbox[data/photos/inbox/photo.jpg]
+    Inbox --> Preprocess[ImagePreprocessingService\nEXIF correction\nResize longest side 640–800px\nSHA-256 fingerprint]
+    Preprocess --> Preview[data/photos/vision_preview/photo_preview.jpg]
+    Preview --> Vision[OllamaVisionClient\nqwen2.5vl:7b via Ollama\nbase64 → description + summary]
+    Vision --> Score[_score_significance\nOllama text call\nscoring_prompt + description\n→ significance_score 0.0–1.0]
+    Score --> Gate{score >= 0.75?}
+    Gate -->|Yes| Candidate[is_remote_candidate = true\nEligible for upload]
+    Gate -->|No| Archive[Archived only]
+    Candidate --> DB[(photos table\nvision_description\nsignificance_score\nis_remote_candidate = 1)]
+    Archive --> DB
+    DB --> Move[shutil.move\nOriginal → processed/photo.jpg]
+
+    style Inbox fill:#1c2333,stroke:#58a6ff,color:#fff
+    style Vision fill:#d2a8ff,stroke:#d2a8ff,color:#fff
+    style Score fill:#d29922,stroke:#d29922,color:#fff
+    style Gate fill:#1a2740,stroke:#d29922,color:#fff
+    style Candidate fill:#238636,stroke:#3fb950,color:#fff
+    style DB fill:#161b22,stroke:#30363d,color:#8b949e
+        </pre>
+      </div>
+    </div>
+
+    <div id="semaphore" class="diagram-panel">
+      <div class="diagram-container">
+        <div class="zoom-controls">
+          <button onclick="zoomDiagram(this,1.2)">+</button>
+          <button onclick="zoomDiagram(this,0.8)">−</button>
+          <button onclick="resetDiagram(this)">⟲</button>
+          <button onclick="fullscreenDiagram(this)">⛶</button>
+        </div>
+        <pre class="mermaid">
+graph TD
+    Idle([idle]) --> AcqTyping[CLI: acquire_typing\nlock acquired]
+    AcqTyping --> ShowPrompt[Show ❯ prompt\nawait input in executor thread]
+    ShowPrompt --> Enter[User hits Enter]
+    Enter --> TransLLM[transition_to_llm\nstate = llm_running\nlock still held]
+    TransLLM --> Spinner[Show ⠹ reasoning...]
+    Spinner --> LLMCall[LLM invoke + tool chain]
+    LLMCall --> Done[finish action received]
+    Done --> Release[release — idle\nlock released]
+    Release --> AcqTyping
+
+    Idle --> AcqTask[Scheduler: acquire_task\nlock acquired]
+    AcqTask --> RunTask[Execute task\nstream progress to scroll]
+    RunTask --> TaskDone[task complete or failed]
+    TaskDone --> ReleaseTask[release — idle]
+    ReleaseTask --> Idle
+
+    subgraph HTTP [HTTP Server — always running, never locks]
+        iPhone[iPhone POST /locations] --> InsertDB[INSERT locations + INSERT task]
+    end
+
+    style Idle fill:#238636,stroke:#3fb950,color:#fff
+    style LLMCall fill:#d2a8ff,stroke:#d2a8ff,color:#fff
+    style AcqTask fill:#f0883e,stroke:#f0883e,color:#fff
+    style RunTask fill:#f0883e,stroke:#f0883e,color:#fff
         </pre>
       </div>
     </div>
@@ -473,92 +609,97 @@ graph TD
     <div id="classes" class="diagram-panel">
       <div class="diagram-container">
         <div class="zoom-controls">
-          <button onclick="zoomDiagram(this, 1.2)" title="Zoom in">+</button>
-          <button onclick="zoomDiagram(this, 0.8)" title="Zoom out">−</button>
-          <button onclick="resetDiagram(this)" title="Reset">⟲</button>
-          <button onclick="fullscreenDiagram(this)" title="Fullscreen">⛶</button>
+          <button onclick="zoomDiagram(this,1.2)">+</button>
+          <button onclick="zoomDiagram(this,0.8)">−</button>
+          <button onclick="resetDiagram(this)">⟲</button>
+          <button onclick="fullscreenDiagram(this)">⛶</button>
         </div>
         <pre class="mermaid">
 classDiagram
-    class Runtime {
-        -_config: Config
-        -_store: StateStore
-        -_llm: LLMClient
-        -_output: OutputHandler
-        +start_session() str
-        +process_message(sid, msg) None
-    }
+    %% ── Protocols ─────────────────────────────────
+    class LLMClient { <<protocol>> +ainvoke(messages, fmt) dict }
+    class StateStore { <<protocol>> +create() ConversationState +get() ConversationState +save() None }
+    class OutputHandler { <<protocol>> +on_llm_start(depth) None +on_vision_start(filename) None +on_task_progress(msg) None +display(content) None }
 
-    class Config {
-        +agent: AgentConfig
-        +personality: PersonalityConfig
-        +fields: list
-        +escalation: EscalationConfig
-        +load(path)$ Config
-    }
+    %% ── Actions ───────────────────────────────────
+    class Action { <<abstract>> +type: str +payload: dict +execute(state)* str|None }
+    class SendMessageAction { +type: send_message }
+    class FinishAction { +type: finish }
+    class ToolAction { <<abstract>> 13 concrete subclasses }
 
-    class StateStore {
-        +create(session_id) ConversationState
-        +get(session_id) ConversationState
-        +save(state) None
-        +delete(session_id) None
-    }
+    %% ── State ─────────────────────────────────────
+    class ConversationState { +session_id: str +messages: list~Message~ +add_message(role, content) None }
 
-    class LLMClient {
-        +ainvoke(messages, response_format) dict
-    }
+    %% ── Runtime ───────────────────────────────────
+    class Runtime { -_config: Config -_store: StateStore -_llm: LLMClient -_output: OutputHandler -_db: Database +start_session() str +process_message(sid, msg) None -_dispatch_tool(type, payload) str }
+    class Scheduler { -_config: Config -_db: Database -_semaphore: ExecutionSemaphore -_task_runner: TaskRunner +run() None -_tick() None }
+    class ExecutionSemaphore { -_lock: asyncio.Lock -_state: SemaphoreState +is_idle: bool +acquire_typing() None +acquire_task() None +release() None }
+    class TaskRunner { -_config: Config -_db: Database -_output: OutputHandler +execute(task: dict) None }
+    class ActionParser { +parse(raw_actions) list~Action~ }
 
-    class OutputHandler {
-        +on_llm_response(response) None
-        +on_action_start(action_type) None
-        +on_state_update(state) None
-        +display(content) None
-    }
+    %% ── LLM ───────────────────────────────────────
+    class OllamaClient { -_model: str -_base_url: str +ainvoke(messages, fmt) dict }
+    class OllamaVisionClient { -_model: str +describe(image_path) VisionResult }
+    class VisionResult { +description: str +summary: str }
 
-    class ConversationState {
-        +session_id: str
-        +messages: list
-        +collected_fields: dict
-        +steps: list
-        +escalated: bool
-    }
+    %% ── Services ──────────────────────────────────
+    class PhotoService { -_preprocessor: ImagePreprocessingService -_vision: OllamaVisionClient -_threshold: float +scan_inbox() int +process_photo(photo_id) None -_score_significance(desc) float }
+    class ImagePreprocessingService { +process(source_path) PreprocessResult }
+    class WeatherService { +fetch_and_store(lat, lon) dict }
+    class KnowledgeService { +index_documents() int +search(query) str -_embed(texts) list -_chunk(text) list~str~ }
 
-    class Action {
-        +type: str
-        +payload: dict
-        +execute(state) str or None
-    }
+    %% ── Database ──────────────────────────────────
+    class Database { -_path: Path +connect() None +init_all_tables() None }
+    class LocationsRepository { -_db: Database +insert(lat, lon, recorded_at) dict +get_latest(limit) list +get_by_date(date) list +get_all() list }
+    class PhotosRepository { -_db: Database +insert(file_path, name, folder) dict +get_by_id(id) dict +get_all() list +update(id, **fields) None }
+    class WeatherRepository { -_db: Database +insert(...) dict +get_latest() dict +get_today() list }
+    class TasksRepository { -_db: Database +insert(type, payload) dict +claim_next() dict +complete(id) None +fail(id, err) None }
+    class MessagesRepository { -_db: Database +insert(session_id, role, content) dict +get_today() list }
 
-    class CLI {
-        +run(runtime) None
-        -_thinking() spinner
-        -_render_status_bar() None
-    }
+    %% ── Config ────────────────────────────────────
+    class Config { +agent: AgentConfig +photo_pipeline: PhotoPipelineConfig +weather: WeatherConfig +knowledge: KnowledgeConfig +remote_sync: RemoteSyncConfig +load(path)$ Config }
 
-    class OpenRouterClient {
-        +ainvoke(messages, fmt) dict
-    }
+    %% ── CLI ───────────────────────────────────────
+    class CLI { -_config: Config +run(runtime, semaphore, db) None +on_llm_start(depth) None +on_vision_start(filename) None +on_task_progress(msg) None +display(content) None }
 
-    Runtime o-- Config
-    Runtime o-- StateStore
-    Runtime o-- LLMClient
-    Runtime o-- OutputHandler
-    Runtime ..> ConversationState : manages
-    Runtime ..> Action : executes
-
-    StateStore ..> ConversationState : persists
-    StateStore <|.. MemoryStateStore : implements
+    %% ── Implementations ───────────────────────────
+    LLMClient <|.. OllamaClient : implements
     StateStore <|.. FileStateStore : implements
-
-    LLMClient <|.. OpenRouterClient : implements
+    StateStore <|.. MemoryStateStore : implements
     OutputHandler <|.. CLI : implements
-    CLI o-- Runtime
 
-    Action ..> ConversationState : mutates
+    %% ── Action hierarchy ──────────────────────────
     Action <|-- SendMessageAction
-    Action <|-- CollectFieldAction
-    Action <|-- UpdateStateAction
-    Action <|-- EscalateAction
+    Action <|-- FinishAction
+    Action <|-- ToolAction
+
+    %% ── Runtime wiring ────────────────────────────
+    Runtime o-- Config : has
+    Runtime o-- StateStore : has
+    Runtime o-- LLMClient : has
+    Runtime o-- OutputHandler : has
+    Runtime o-- Database : has
+    Scheduler o-- ExecutionSemaphore : has
+    Scheduler o-- TaskRunner : has
+    Scheduler o-- Database : has
+
+    %% ── Services ──────────────────────────────────
+    PhotoService ..> ImagePreprocessingService : uses
+    PhotoService ..> OllamaVisionClient : uses
+    PhotoService ..> Database : uses
+    WeatherService ..> Database : uses
+    KnowledgeService ..> Database : uses
+    OllamaVisionClient ..> VisionResult : returns
+    TaskRunner ..> PhotoService : delegates
+    TaskRunner ..> WeatherService : delegates
+    TaskRunner ..> KnowledgeService : delegates
+
+    %% ── Repos receive Database as dependency ──────
+    LocationsRepository ..> Database : depends
+    PhotosRepository ..> Database : depends
+    WeatherRepository ..> Database : depends
+    TasksRepository ..> Database : depends
+    MessagesRepository ..> Database : depends
         </pre>
       </div>
     </div>
@@ -568,118 +709,146 @@ classDiagram
   <section id="decisions">
     <h2>Key Design Decisions</h2>
     <ul class="decisions">
-      <li><strong>Actions self-execute on state, return <code>str | None</code></strong> — Only <code>SendMessage</code> returns displayable text. Others silently mutate state. The runtime doesn't need to know what each action does.</li>
-      <li><strong>Buffered display output</strong> — All action logs print as they run, but agent messages display only after all actions complete. Prevents interleaved output.</li>
-      <li><strong>Confidence gating at runtime</strong> — Defense-in-depth: the prompt tells the LLM not to collect low-confidence data, but the runtime also rejects <code>collect_field</code> below the configured threshold.</li>
-      <li><strong>Structured Output with strict JSON Schema</strong> — <code>response_format</code> enforces the exact shape at the API level. Graceful fallback if truncated.</li>
-      <li><strong>Steps managed by the LLM, not the runtime</strong> — Steps are high-level flow markers. The LLM infers transitions from context and updates them via <code>update_state</code>.</li>
-      <li><strong>System prompt as interpolated markdown</strong> — Template uses headings, bold, tables for better LLM comprehension. Config values and state injected at call time.</li>
+      <li>
+        <strong>finish is the only terminal action</strong>
+        <code>send_message</code> displays text but does not stop the chain. The LLM can emit multiple <code>send_message</code> calls (progress updates) alongside tool actions in one turn. Only <code>finish</code> stops the loop and releases the semaphore.
+      </li>
+      <li>
+        <strong>Semaphore holds through the full user interaction cycle</strong>
+        The CLI acquires the lock before showing <code>❯</code>. It stays held through typing, LLM calls, and all tool executions — released only after <code>finish</code>. This guarantees the scheduler can never interrupt a conversation mid-chain.
+      </li>
+      <li>
+        <strong>HTTP server is lock-free by design</strong>
+        GPS coordinates from the iPhone are always stored immediately, regardless of what the CLI or scheduler is doing. Task queue accumulates freely; execution is deferred until the lock is free.
+      </li>
+      <li>
+        <strong>All paths from environment variables — no defaults in code</strong>
+        Every file path, URL, and port is read from <code>os.environ["KEY"]</code>. Pydantic config fields use <code>Field(default_factory=lambda: os.environ["KEY"])</code>. Missing env var = hard crash at startup, not a silent default.
+      </li>
+      <li>
+        <strong>Ollama for all inference — no cloud dependency</strong>
+        Vision (<code>qwen2.5vl:7b</code>), significance scoring, embeddings (<code>nomic-embed-text</code>) all via the local Ollama server. The agent works fully offline in the field.
+      </li>
+      <li>
+        <strong>Significance scoring prompt is configurable, not hardcoded</strong>
+        <code>photo_pipeline.scoring_prompt</code> in the JSON config controls what the LLM considers significant. Threshold (0.75) is also configurable. No code changes needed to tune field-specific criteria.
+      </li>
+      <li>
+        <strong>Original photos are never modified</strong>
+        <code>ImagePreprocessingService</code> creates a derived JPEG preview. The original moves from <code>inbox/</code> to <code>processed/</code> after successful analysis. Preview files are disposable.
+      </li>
+      <li>
+        <strong>Repository pattern — one class per SQLite table</strong>
+        Each repo takes a <code>Database</code> reference and issues raw SQL. No ORM. WAL mode enabled. Repos have no knowledge of each other.
+      </li>
     </ul>
   </section>
 
-  <!-- Action Routing -->
+  <!-- Actions -->
   <section id="actions">
-    <h2>Action Routing</h2>
-    <p>The LLM returns <code>{"actions": [...]}</code> — each with a <code>type</code> and <code>payload</code>. The runtime routes them:</p>
-    <div class="cards">
-      <div class="card">
-        <h3>send_message</h3>
-        <p>Display text to user. Must be last action. Returns the content string.</p>
-      </div>
-      <div class="card">
-        <h3>collect_field</h3>
-        <p>Store a field value with confidence score. Gated by global <code>confidence_threshold</code>.</p>
-      </div>
-      <div class="card">
-        <h3>update_state</h3>
-        <p>Update conversation flow steps (<code>greeting</code> → <code>collecting</code> → <code>escalation</code>).</p>
-      </div>
-      <div class="card">
-        <h3>escalate</h3>
-        <p>Hand off to human agent. Sets <code>escalated=true</code> with a reason.</p>
-      </div>
-    </div>
+    <h2>Available Actions</h2>
+    <p>The LLM returns <code>{"actions": [{"type": "...", "payload": {...}}]}</code>. The Runtime routes each to the appropriate handler.</p>
+    <table>
+      <thead><tr><th>Action</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td>get_latest_locations</td><td>Fetch most recent GPS positions from DB</td></tr>
+        <tr><td>get_locations_by_date</td><td>Fetch GPS positions for a specific date</td></tr>
+        <tr><td>get_photos</td><td>Photo records with vision descriptions and scores</td></tr>
+        <tr><td>get_weather</td><td>Live Open-Meteo ECMWF fetch + store snapshot</td></tr>
+        <tr><td>scan_photo_inbox</td><td>Scan inbox and run full pipeline on all photos</td></tr>
+        <tr><td>create_task</td><td>Queue a background task for the scheduler</td></tr>
+        <tr><td>search_knowledge</td><td>Semantic search over expedition knowledge base</td></tr>
+        <tr><td>index_knowledge</td><td>Re-index all documents in the knowledge folder</td></tr>
+        <tr><td>publish_daily_progress</td><td>Bundle today's data and POST to expedition website</td></tr>
+        <tr><td>publish_route_snapshot</td><td>POST GeoJSON route to expedition website</td></tr>
+        <tr><td>upload_image</td><td>Upload a remote-candidate photo</td></tr>
+        <tr><td>publish_agent_message</td><td>Post a message to the expedition website</td></tr>
+        <tr><td>publish_weather_snapshot</td><td>Publish latest weather reading</td></tr>
+        <tr><td>send_message</td><td>Display text to user — non-terminal, can appear anywhere</td></tr>
+        <tr><td>finish</td><td>Terminate the chain — must appear in every response</td></tr>
+      </tbody>
+    </table>
   </section>
 
   <!-- Demo -->
   <section id="demo">
     <h2>Demo</h2>
-    <p>A real conversation with the Pizza Order Assistant agent:</p>
     <div class="terminal">
       <div class="terminal-header">
         <span class="terminal-dot red"></span>
         <span class="terminal-dot yel"></span>
         <span class="terminal-dot grn"></span>
-        <span class="terminal-title">agent1 — pizza_place_config.json</span>
+        <span class="terminal-title">antartia — expedition_config.json</span>
       </div>
-      <div class="terminal-body"><span class="c">  ╱|、</span>        <span class="b">agent1</span> <span class="d">v0.0.1 — nosoul</span>
-<span class="c"> (˚ˎ 。7</span>      <span class="d">openai/gpt-4o-mini</span>
-<span class="c">  |、˜〵</span>       <span class="m b">Pizza Order Assistant</span>
-<span class="c">  じしˍ,)ノ</span>
+      <div class="terminal-body"><span class="c b">Antartia:</span> Antartia online. How can I help?
 
-<span class="c b">Pizza Order Assistant:</span> Hey there! Welcome to our pizza place. 🍕
-<span class="y b">❯</span> I'd like a large pepperoni please, name is Mario
-  <span class="d">executing: collect_field</span>
-  <span class="d">executing: collect_field</span>
+<span class="y b">❯</span> what are today's conditions?
+  <span class="d">▸ reasoning...</span>
+  <span class="d">executing: get_latest_locations</span>
+  <span class="d">executing: get_weather</span>
+  <span class="d">▸ reasoning... (1)</span>
   <span class="d">executing: send_message</span>
-<span class="c b">Pizza Order Assistant:</span> Great choices Mario! A large pepperoni coming up! 🔥
-                        What's your phone number for order updates?
-<span class="y b">❯</span> 555-1234
-  <span class="d">executing: collect_field</span>
-  <span class="d">executing: send_message</span>
-<span class="c b">Pizza Order Assistant:</span> Got it! Delivery or pickup?
-<span class="d">──────────────────────────────────────────────────────────────</span>
-<span class="y b">❯</span> <span class="d">⠹ Thinking...</span>
-<span class="d">name ✓ │ phone ✓ │ type … │ pizza ✓ │ notes … │ tokens: 2,031</span></div>
-    </div>
-  </section>
+<span class="c b">Antartia:</span> Position: -62.18, -58.41 · Temp <span class="c">-4.2°C</span> (feels <span class="c">-11.0°C</span>)
+          Wind <span class="y">38 km/h SW</span>, gusts to <span class="y">62 km/h</span> · Light snow ❄
+          Snow depth 0.12 m · Surface pressure 988 hPa
+  <span class="d">executing: finish</span>
 
-  <!-- Design Patterns -->
-  <section id="patterns">
-    <h2>Design Patterns</h2>
-    <div class="cards">
-      <div class="card">
-        <h3>Command</h3>
-        <p>Each <code>Action</code> encapsulates an operation. Runtime iterates and executes without knowing the implementation.</p>
-      </div>
-      <div class="card">
-        <h3>Repository</h3>
-        <p><code>StateStore</code> — CRUD-only data access. Memory for tests, file-based for production.</p>
-      </div>
-      <div class="card">
-        <h3>Strategy</h3>
-        <p><code>LLMClient</code> — swap OpenRouter for a test double or another provider.</p>
-      </div>
-      <div class="card">
-        <h3>Observer</h3>
-        <p><code>OutputHandler</code> receives real-time callbacks. Status bar updates after every single action.</p>
-      </div>
+<span class="y b">❯</span> scan the inbox
+  <span class="d">▸ reasoning...</span>
+  <span class="d">executing: scan_photo_inbox</span>
+  <span class="d">⟳ inbox: found new photo — IMG_0847.jpg</span>
+  <span class="d">⟳ preprocessing: IMG_0847.jpg</span>
+  <span class="m">◈ analyzing IMG_0847.jpg</span>
+  <span class="d">⟳   ◈ Three expedition members approach a crevasse field at dusk.</span>
+  <span class="d">⟳ scoring: IMG_0847.jpg</span>
+  <span class="g">⟳   score=0.91 — ✓ remote candidate</span>
+  <span class="d">⟳   moved: IMG_0847.jpg → processed/</span>
+  <span class="d">▸ reasoning... (1)</span>
+  <span class="d">executing: send_message</span>
+<span class="c b">Antartia:</span> 1 photo processed. IMG_0847 flagged as remote candidate (score <span class="g">0.91</span>).
+  <span class="d">executing: finish</span>
+
+<span class="y b">❯</span> what species might we encounter near King George Island?
+  <span class="d">▸ reasoning...</span>
+  <span class="d">executing: search_knowledge</span>
+  <span class="d">▸ reasoning... (1)</span>
+  <span class="d">executing: send_message</span>
+<span class="c b">Antartia:</span> Around King George Island: Chinstrap and Gentoo penguins,
+          Weddell and leopard seals, Wilson's storm petrels.
+          Humpback and minke whales frequent Maxwell Bay in summer.
+  <span class="d">executing: finish</span>
+<span class="d">──────────────────────────────────────────────────────────────────────</span>
+<span class="y b">❯</span>
+<span class="d">abc123 · -62.18, -58.41 · -4.2°C (feels -11.0°C) ❄</span></div>
     </div>
   </section>
 
   <!-- Stack -->
-  <section id="testing">
+  <section id="stack">
     <h2>Stack</h2>
-    <div class="info-grid">
-      <div class="info-item"><span class="label">Language</span><span class="value">Python 3.11+</span></div>
-      <div class="info-item"><span class="label">Models</span><span class="value">Pydantic v2</span></div>
-      <div class="info-item"><span class="label">HTTP</span><span class="value">httpx (async)</span></div>
-      <div class="info-item"><span class="label">Terminal UI</span><span class="value">Rich</span></div>
-      <div class="info-item"><span class="label">LLM Provider</span><span class="value">OpenRouter</span></div>
-      <div class="info-item"><span class="label">Tests</span><span class="value">pytest + pytest-asyncio</span></div>
+    <div class="stack-grid">
+      <div class="stack-item"><span class="label">Language</span><span class="value">Python 3.11+</span></div>
+      <div class="stack-item"><span class="label">LLM runtime</span><span class="value">Ollama (local)</span></div>
+      <div class="stack-item"><span class="label">Vision model</span><span class="value">qwen2.5vl:7b</span></div>
+      <div class="stack-item"><span class="label">Embedding model</span><span class="value">nomic-embed-text</span></div>
+      <div class="stack-item"><span class="label">Vector store</span><span class="value">ChromaDB (embedded)</span></div>
+      <div class="stack-item"><span class="label">Database</span><span class="value">SQLite + aiosqlite</span></div>
+      <div class="stack-item"><span class="label">HTTP client</span><span class="value">httpx (async)</span></div>
+      <div class="stack-item"><span class="label">Image processing</span><span class="value">Pillow</span></div>
+      <div class="stack-item"><span class="label">Terminal UI</span><span class="value">Rich</span></div>
+      <div class="stack-item"><span class="label">Config</span><span class="value">Pydantic v2</span></div>
+      <div class="stack-item"><span class="label">Weather API</span><span class="value">Open-Meteo ECMWF</span></div>
     </div>
   </section>
 
   <footer>
-    agent1 v0.0.1 — nosoul &middot; Python 3.11+ &middot; async
+    Antartia · Antarctic Expedition Agent · Python 3.11+ · All inference local via Ollama
   </footer>
 
 </div>
 
 <script type="module">
-  console.log('[mermaid] importing module...');
   import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
-  console.log('[mermaid] module loaded, version:', mermaid.mermaidAPI?.version ?? 'unknown');
 
   mermaid.initialize({
     startOnLoad: false,
@@ -692,40 +861,25 @@ classDiagram
       lineColor: '#58a6ff',
       secondaryColor: '#1a2740',
       tertiaryColor: '#1e2a3a',
-      noteBkgColor: '#1c2333',
-      noteTextColor: '#e6edf3',
       edgeLabelBackground: '#0d1117',
       clusterBkg: '#161b22',
       clusterBorder: '#30363d',
     }
   });
-  console.log('[mermaid] initialized (startOnLoad: false)');
 
-  // Store original source from each diagram before any rendering
   const diagramSources = {};
   document.querySelectorAll('pre.mermaid').forEach(el => {
     const panel = el.closest('.diagram-panel');
-    if (panel) {
-      diagramSources[panel.id] = el.textContent;
-      console.log(`[mermaid] stored source for panel "${panel.id}" (${el.textContent.length} chars)`);
-    }
+    if (panel) diagramSources[panel.id] = el.textContent;
   });
 
-  // Render only the active (visible) panel on load
   const activePanel = document.querySelector('.diagram-panel.active');
-  if (activePanel) {
-    const nodes = activePanel.querySelectorAll('.mermaid');
-    console.log('[mermaid] rendering active panel:', activePanel.id);
-    await mermaid.run({ nodes });
-    console.log('[mermaid] active panel rendered');
-  }
+  if (activePanel) await mermaid.run({ nodes: activePanel.querySelectorAll('.mermaid') });
 
-  // Track which panels have been rendered
   const rendered = new Set();
   if (activePanel) rendered.add(activePanel.id);
 
   window.showTab = function(id) {
-    console.log('[mermaid] switching to tab:', id);
     document.querySelectorAll('.diagram-tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.diagram-panel').forEach(p => p.classList.remove('active'));
     const panel = document.getElementById(id);
@@ -733,87 +887,27 @@ classDiagram
     event.target.classList.add('active');
 
     if (!rendered.has(id) && diagramSources[id]) {
-      console.log('[mermaid] first render for panel:', id);
       const container = panel.querySelector('.diagram-container');
-      // Re-inject fresh source (mermaid may have mangled the pre on init)
-      container.innerHTML = '<div class="zoom-controls"><button onclick="zoomDiagram(this,1.2)" title="Zoom in">+</button><button onclick="zoomDiagram(this,0.8)" title="Zoom out">−</button><button onclick="resetDiagram(this)" title="Reset">⟲</button><button onclick="fullscreenDiagram(this)" title="Fullscreen">⛶</button></div><pre class="mermaid">' + diagramSources[id] + '</pre>';
-      mermaid.run({ nodes: container.querySelectorAll('.mermaid') }).then(() => {
-        rendered.add(id);
-        console.log('[mermaid] rendered panel:', id);
-      }).catch(err => {
-        console.error('[mermaid] render ERROR for', id, ':', err.message);
-      });
+      container.innerHTML = '<div class="zoom-controls"><button onclick="zoomDiagram(this,1.2)">+</button><button onclick="zoomDiagram(this,0.8)">−</button><button onclick="resetDiagram(this)">⟲</button><button onclick="fullscreenDiagram(this)">⛶</button></div><pre class="mermaid">' + diagramSources[id] + '</pre>';
+      mermaid.run({ nodes: container.querySelectorAll('.mermaid') }).then(() => rendered.add(id));
     }
   };
 
-  // Zoom, pan & fullscreen
   const zoomState = new WeakMap();
+  function getState(c) { if (!zoomState.has(c)) zoomState.set(c, {scale:1,x:0,y:0}); return zoomState.get(c); }
+  function applyTransform(c) { const svg = c.querySelector('svg'); if (!svg) return; const s = getState(c); svg.style.transform = `translate(${s.x}px,${s.y}px) scale(${s.scale})`; }
 
-  function getState(container) {
-    if (!zoomState.has(container)) {
-      zoomState.set(container, { scale: 1, x: 0, y: 0 });
-    }
-    return zoomState.get(container);
-  }
+  window.zoomDiagram = (btn, f) => { const c = btn.closest('.diagram-container'); const s = getState(c); s.scale = Math.min(Math.max(s.scale*f,0.3),3); applyTransform(c); };
+  window.resetDiagram = (btn) => { const c = btn.closest('.diagram-container'); const s = getState(c); s.scale=1;s.x=0;s.y=0; applyTransform(c); };
+  window.fullscreenDiagram = (btn) => { const c = btn.closest('.diagram-container'); document.fullscreenElement ? document.exitFullscreen() : c.requestFullscreen(); };
 
-  function applyTransform(container) {
-    const svg = container.querySelector('svg');
-    if (!svg) return;
-    const s = getState(container);
-    svg.style.transform = `translate(${s.x}px, ${s.y}px) scale(${s.scale})`;
-  }
-
-  window.zoomDiagram = function(btn, factor) {
-    const container = btn.closest('.diagram-container');
-    const s = getState(container);
-    s.scale = Math.min(Math.max(s.scale * factor, 0.3), 3);
-    applyTransform(container);
-  };
-
-  window.resetDiagram = function(btn) {
-    const container = btn.closest('.diagram-container');
-    const s = getState(container);
-    s.scale = 1; s.x = 0; s.y = 0;
-    applyTransform(container);
-  };
-
-  window.fullscreenDiagram = function(btn) {
-    const container = btn.closest('.diagram-container');
-    if (document.fullscreenElement) {
-      document.exitFullscreen();
-    } else {
-      container.requestFullscreen();
-    }
-  };
-
-  // Mouse wheel zoom
-  document.querySelectorAll('.diagram-container').forEach(container => {
-    container.addEventListener('wheel', e => {
-      e.preventDefault();
-      const factor = e.deltaY < 0 ? 1.1 : 0.9;
-      const s = getState(container);
-      s.scale = Math.min(Math.max(s.scale * factor, 0.3), 3);
-      applyTransform(container);
-    }, { passive: false });
-
-    // Drag to pan
-    let dragging = false, startX, startY;
-    container.addEventListener('mousedown', e => {
-      if (e.target.closest('.zoom-controls')) return;
-      dragging = true;
-      const s = getState(container);
-      startX = e.clientX - s.x;
-      startY = e.clientY - s.y;
-    });
-    container.addEventListener('mousemove', e => {
-      if (!dragging) return;
-      const s = getState(container);
-      s.x = e.clientX - startX;
-      s.y = e.clientY - startY;
-      applyTransform(container);
-    });
-    container.addEventListener('mouseup', () => dragging = false);
-    container.addEventListener('mouseleave', () => dragging = false);
+  document.querySelectorAll('.diagram-container').forEach(c => {
+    c.addEventListener('wheel', e => { e.preventDefault(); const f = e.deltaY<0?1.1:0.9; const s=getState(c); s.scale=Math.min(Math.max(s.scale*f,0.3),3); applyTransform(c); }, {passive:false});
+    let drag=false,sx,sy;
+    c.addEventListener('mousedown', e => { if(e.target.closest('.zoom-controls')) return; drag=true; const s=getState(c); sx=e.clientX-s.x; sy=e.clientY-s.y; });
+    c.addEventListener('mousemove', e => { if(!drag) return; const s=getState(c); s.x=e.clientX-sx; s.y=e.clientY-sy; applyTransform(c); });
+    c.addEventListener('mouseup', ()=>drag=false);
+    c.addEventListener('mouseleave', ()=>drag=false);
   });
 </script>
 

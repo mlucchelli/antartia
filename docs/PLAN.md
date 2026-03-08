@@ -1,147 +1,123 @@
-# Action-Based Conversational Agent
+# Engineering Plan — Antartia
 
-## Overview
+> Detailed plan lives at [`plan.md`](../plan.md) in the project root.
+> This document summarises the architecture and engineering decisions for reference.
 
-A configurable conversational agent where the LLM returns structured JSON with actions that the runtime executes sequentially. The agent collects user information through natural conversation, manages state, and escalates when appropriate. All behavior is configuration-driven through a single JSON file.
+---
 
-## Architecture
+## What we're building
 
-- **Action-Driven Flow**: LLM returns `{"actions": [...]}`, runtime executes sequentially
-- **Single JSON Configuration**: One config file defines all behavior (fields, personality, prompt, escalation)
-- **Structured Output**: OpenRouter API with `response_format` JSON schema enforcement
-- **State-in-Request**: Complete state sent with each LLM call for context
-- **Dual State Store**: `MemoryStateStore` (tests) + `FileStateStore` (production, JSON files)
-- **Protocol-Based**: `StateStore`, `OutputHandler`, `LLMClient` — all swappable via Protocol
+An autonomous AI field agent for an Antarctic expedition. It runs on-device (MacBook, no GPU required), coordinates GPS tracking, weather monitoring, photo analysis, and expedition publishing — all driven by a local LLM through recursive tool chaining.
 
-## Conversation Flow
+---
 
-```mermaid
-graph TD
-    Start([User Input via CLI]) --> Echo[Echo in scroll area]
-    Echo --> Spinner[Show animated spinner]
-    Spinner --> PrepareRequest[Build system prompt + messages]
-    PrepareRequest --> LLMCall[LLMClient.ainvoke]
-    LLMCall --> OnLLMResponse[on_llm_response — token tracking]
-    OnLLMResponse --> OnStateUpdate[on_state_update — pre-action state]
-    OnStateUpdate --> ParseActions[ActionParser.parse]
-    ParseActions --> ActionLoop[For each Action]
-    ActionLoop --> ConfidenceCheck{collect_field?}
-    ConfidenceCheck -->|Yes| ThresholdCheck{Meets confidence?}
-    ThresholdCheck -->|No| SkipAction[Skip — log rejection]
-    ThresholdCheck -->|Yes| Execute
-    ConfidenceCheck -->|No| Execute[on_action_start + execute]
-    Execute --> PostStateUpdate[on_state_update — real-time]
-    SkipAction --> NextAction
-    PostStateUpdate --> CollectResult{Has display text?}
-    CollectResult -->|Yes| BufferResult[Buffer for later display]
-    CollectResult -->|No| NextAction{More actions?}
-    BufferResult --> NextAction
-    NextAction -->|Yes| ActionLoop
-    NextAction -->|No| DisplayAll[Display all buffered messages]
-    DisplayAll --> SaveState[StateStore.save]
-    SaveState --> Start
-```
+## Core engineering constraints
 
-## Project Structure
+- **Fully offline inference** — Ollama serves all models locally. No cloud API needed during field operation (weather fetch and remote publish are the only network calls).
+- **Single asyncio event loop** — CLI, HTTP server, and scheduler all share one loop. No threads except the blocking input executor.
+- **One lock, three subsystems** — `ExecutionSemaphore` wraps a single `asyncio.Lock`. CLI holds it from prompt to reply. Scheduler acquires it between turns. HTTP server never touches it.
+- **SQLite, no ORM** — `aiosqlite` with raw SQL. Six repos, one connection, WAL mode.
+- **All paths from env** — No hardcoded paths or URLs in code. Everything via `.env`.
 
-```
-src/agent/
-├── __main__.py              — Entry point (--config, --test, --debug, --session, --session-dir)
-├── config/loader.py         — Pydantic Config model + Config.load()
-├── cli/app.py               — CLI with terminal layout, spinner, status bar
-├── llm/
-│   ├── client.py            — LLMClient Protocol
-│   ├── openrouter.py        — OpenRouterClient (httpx async)
-│   └── prompt_builder.py    — System prompt interpolation with config + state
-├── models/
-│   ├── actions.py           — Action classes (SendMessage, CollectField, UpdateState, Escalate)
-│   └── state.py             — ConversationState, Message, FieldData, StepInfo
-├── runtime/
-│   ├── parser.py            — ActionParser (dict → Action instances)
-│   ├── protocols.py         — OutputHandler Protocol
-│   └── runtime.py           — Runtime orchestrator + RESPONSE_FORMAT schema
-└── state/
-    ├── file_store.py        — FileStateStore (JSON files per session)
-    └── store.py             — StateStore Protocol + MemoryStateStore
-```
+---
 
-## Key Design Decisions
+## Commit history
 
-### Actions execute on state, return `str | None`
-Only `SendMessageAction` returns displayable text. `CollectFieldAction`, `UpdateStateAction`, `EscalateAction` return `None` — they silently mutate state.
+| #  | Description                                                                  | Status   |
+|----|------------------------------------------------------------------------------|----------|
+| 1  | Project setup, core models, config loader, schemas                           | Done     |
+| 2  | StateStore, OutputHandler, ActionParser, PromptBuilder                       | Done     |
+| 3  | Runtime orchestrator                                                         | Done     |
+| 4  | CLI with terminal layout, spinner, status bar                                | Done     |
+| 5  | OpenRouter LLM client + system prompt + debug mode                           | Done     |
+| 6  | FileStateStore + enhanced CLI                                                | Done     |
+| 7  | DB layer: aiosqlite + 6 table repos                                          | Done     |
+| 8  | Models: LocationRecord, TaskRecord, PhotoRecord                              | Done     |
+| 9  | Expedition config + remove legacy conversational configs                     | Done     |
+| 10 | HTTP server: POST /locations → GPS insert + task queue                       | Done     |
+| 11 | ExecutionSemaphore + Scheduler (60s tick)                                    | Done     |
+| 12 | Semaphore redesign + FIFO tasks + async CLI input + recursive chaining       | Done     |
+| 13 | TaskRunner: all task types + CLI task progress                               | Done     |
+| 14 | OllamaClient + .env loading + full wiring in __main__.py                     | Done     |
+| 15 | WeatherService: Open-Meteo ECMWF + DB persistence                           | Done     |
+| 16 | CLI status bar: GPS + weather + precipitation + auto-refresh                 | Done     |
+| 17 | ImagePreprocessingService + OllamaVisionClient (description + summary)       | Done     |
+| 18 | PhotoService: scan inbox → preprocess → vision → score → move                | Done     |
+| 19 | Embedding pipeline: ChromaDB + nomic-embed-text + search_knowledge action    | Next     |
+| 20 | RemoteSyncService: Railway API publishing                                    | Planned  |
+| 21 | Tests + documentation                                                        | Planned  |
 
-### Display messages buffered until all actions complete
-All `executing:` logs print as actions run, but agent messages display only after all actions finish. This prevents interleaved output (e.g., `send_message` display appearing before `update_state` log).
+---
 
-### Confidence threshold enforcement at runtime
-Defense-in-depth: the system prompt tells the LLM not to collect low-confidence data, but the runtime also rejects `collect_field` actions below `field.confidence_threshold` from config.
-
-### LLM manages steps via `update_state`
-Steps are high-level (`greeting`, `collecting_fields`, `escalation`). The LLM infers step transitions from context and calls `update_state` to reflect them. Runtime does not initialize or manage steps.
-
-### Real-time status bar updates
-`on_state_update()` is called after **each** action executes (not just once per turn), so the status bar reflects field collection immediately.
-
-### System prompt in markdown
-The template in `system_prompt.template` uses markdown (headings, bold, tables) for better LLM comprehension.
-
-### `send_message` must be last action
-The system prompt enforces that every LLM response includes `send_message` as the last action, ensuring the user always gets a conversational reply.
-
-### `EscalateAction` returns `None`
-The LLM sends a warm goodbye via `send_message` before the `escalate` action. `EscalateAction` only updates state (`escalated=True`, `escalation_reason`).
-
-## Terminal Layout
+## Semaphore state machine
 
 ```
-Row 1..(N-3)  — Scroll area: chat history, action logs, debug panels
-Row N-2       — Rule separator ──────────────────────────
-Row N-1       — Input: > (or > ⠹ Thinking... during processing)
-Row N         — Status: session | step | name ✓ | email … | tokens: 1,625
+idle
+ ├─→ acquire_typing() → user_typing → [Enter] → transition_to_llm() → llm_running → release() → idle
+ └─→ acquire_task()   → task_running                                              → release() → idle
+
+HTTP server: never acquires the semaphore
 ```
 
-- Scroll region set via ANSI escape `\033[1;{N-3}r`
-- Status bar rendered on row N via cursor positioning (save/restore)
-- Animated braille spinner runs as `asyncio.create_task` during LLM calls
-- Graceful fallback in non-TTY mode (tests)
+The CLI holds the lock for the **entire user interaction cycle** — from showing `❯` to displaying the agent's reply. The scheduler gets exactly one opportunity to run between turns.
 
-## Configuration
+---
 
-All behavior driven by a single JSON file passed via `--config`:
+## Photo pipeline
 
-```json
-{
-  "agent":        { "name", "greeting", "model", "temperature", "max_tokens" },
-  "personality":  { "tone", "style", "formality", "emoji_usage", "prompt" },
-  "collection":   { "max_attempts", "escalate_on_max_attempts" },
-  "fields":       [{ "name", "type", "required", "description", "validation", "confidence_threshold" }],
-  "actions":      { "available": [{ "type", "description", "parameters" }] },
-  "escalation":   { "enabled", "policies": [{ "enabled", "reason", "description" }] },
-  "system_prompt": { "template", "dynamic_sections" }
-}
+```
+inbox/photo.jpg
+  → ImagePreprocessingService   EXIF correction + resize (640–800px longest side) + SHA-256
+  → OllamaVisionClient          qwen2.5vl:7b → {description, summary}
+  → _score_significance()       Ollama text call → {"significance_score": 0.0–1.0}
+  → PhotosRepository.update()   vision_description, score, is_remote_candidate
+  → shutil.move()               photo.jpg → processed/photo.jpg
 ```
 
-Multiple configs available: `example_config.json`, `clinic_appointments_config.json`, `pizza_place_config.json`, `travel_agency_config.json`.
+Original never modified. Significance threshold: 0.75. Below threshold: archived only.
 
-## Commands
+---
 
-```bash
-pip install -e ".[dev]"                                          # install
-pytest -v                                                        # 53 tests
-python -m agent --config configs/example_config.json             # run
-python -m agent --config configs/example_config.json --debug     # debug mode
-python -m agent --config configs/example_config.json --test      # test LLM (no API)
-python -m agent --config configs/example_config.json --session <id>  # resume session
+## Knowledge base pipeline (commit 19)
+
+```
+data/knowledge/*.txt|*.md
+  → KnowledgeService.index_documents()   chunk (~500 chars) → embed via nomic-embed-text → ChromaDB upsert
+  → KnowledgeService.search(query)       embed query → top-5 chunks → injected as tool result
 ```
 
-## Commit History
+ChromaDB persistent at `data/knowledge_db/`. No server required. Embeddings via Ollama `/api/embed`.
 
-| # | Description | Status |
-|---|-------------|--------|
-| 1 | Project setup, core models, config loader, schemas | Done |
-| 2 | StateStore, OutputHandler, ActionParser, PromptBuilder | Done |
-| 3 | Runtime orchestrator | Done |
-| 4 | CLI interface with test mode | Done |
-| 5 | OpenRouter LLM client + system prompt engineering + debug mode | Done |
-| 6 | FileStateStore + enhanced CLI (status bar, spinner, terminal layout) | Done |
-| 7 | Documentation | Planned |
+---
+
+## Tool dispatch architecture
+
+The Runtime's `_dispatch_tool()` is the single entry point for all LLM tool calls. Each case either:
+- Queries the DB directly (locations, photos, weather)
+- Instantiates a service and delegates (PhotoService, WeatherService, KnowledgeService)
+- Creates a DB record (create_task)
+- Returns a stub for not-yet-implemented features (remote publish)
+
+Tool results are returned as strings and appended to the message context as `{"role": "tool", "content": "[action result]: ..."}` before the next LLM invocation.
+
+---
+
+## Environment variables
+
+| Variable | Description |
+|---|---|
+| `DB_PATH` | SQLite database path |
+| `PHOTO_INBOX_DIR` | Inbox directory for new photos |
+| `PHOTO_PROCESSED_DIR` | Move originals here after processing |
+| `PHOTO_PREVIEW_DIR` | JPEG previews for vision input |
+| `OLLAMA_URL` | Ollama base URL |
+| `VISION_MAX_DIM` | Max dimension for vision preview |
+| `VISION_MIN_DIM` | Min dimension for vision preview |
+| `HTTP_HOST` | HTTP server bind address |
+| `HTTP_PORT` | HTTP server port |
+| `SCHEDULER_TICK_SECONDS` | Scheduler tick interval |
+| `KNOWLEDGE_CHROMA_DIR` | ChromaDB storage path |
+| `KNOWLEDGE_SOURCE_DIR` | Knowledge document source directory |
+| `REMOTE_SYNC_BASE_URL` | Railway expedition website URL |
+| `REMOTE_SYNC_API_KEY` | Railway API key |
+| `OPENROUTER_API_KEY` | OpenRouter key (optional, for cloud LLM) |

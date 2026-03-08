@@ -4,7 +4,8 @@
 __pycache__/
 .DS_Store
 
-# SQLite WAL files
+# SQLite database and WAL files (runtime data)
+data/expedition.db
 data/expedition.db-shm
 data/expedition.db-wal
 
