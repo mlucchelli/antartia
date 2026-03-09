@@ -68,6 +68,14 @@ class PhotosRepository:
         )
         await self._db.conn.commit()
 
+    async def get_wildlife_count(self) -> int:
+        """Count all photos tagged with 'wildlife'."""
+        async with self._db.conn.execute(
+            "SELECT COUNT(*) FROM photos WHERE tags LIKE '%wildlife%'"
+        ) as cur:
+            row = await cur.fetchone()
+        return row[0] if row else 0
+
     async def count_uploaded_today(self) -> int:
         today = datetime.now(timezone.utc).date().isoformat()
         async with self._db.conn.execute(

@@ -129,6 +129,12 @@ class PhotoService:
             self._output.on_task_progress(f"  moved: {filename} → processed/")
 
         # ── Step 5: update DB ─────────────────────────────────────────────────
+        # Capture latest GPS position at processing time
+        from agent.db.locations_repo import LocationsRepository
+        latest_locs = await LocationsRepository(self._db).get_latest(limit=1)
+        lat = latest_locs[0]["latitude"] if latest_locs else None
+        lon = latest_locs[0]["longitude"] if latest_locs else None
+
         await photos_repo.update(
             photo_id,
             vision_status="done",
@@ -139,6 +145,8 @@ class PhotoService:
             processed=1,
             processed_at=datetime.now(timezone.utc).isoformat(),
             moved_to_path=str(moved_path),
+            latitude=lat,
+            longitude=lon,
         )
 
     async def _score_significance(self, description: str) -> tuple[float, dict]:

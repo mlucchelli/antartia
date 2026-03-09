@@ -96,6 +96,12 @@ class Database:
             await self._conn.execute("ALTER TABLE photos ADD COLUMN agent_quote TEXT")
         except Exception:
             pass
+        # Migration: add GPS + tags columns
+        for col in ("latitude REAL", "longitude REAL", "tags TEXT"):
+            try:
+                await self._conn.execute(f"ALTER TABLE photos ADD COLUMN {col}")
+            except Exception:
+                pass
 
     async def _create_weather_table(self) -> None:
         await self._conn.execute("""
