@@ -117,3 +117,7 @@ class GetLogsAction(ToolAction):
 
 class GetTokenUsageAction(ToolAction):
     type: str = "get_token_usage"
+
+
+class GetDistanceAction(ToolAction):
+    type: str = "get_distance"

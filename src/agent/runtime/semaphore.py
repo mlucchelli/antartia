@@ -57,10 +57,20 @@ class ExecutionSemaphore:
         await self._lock.acquire()
         self._state = SemaphoreState.task_running
 
+    def mark_typing(self) -> None:
+        """Called when user starts typing — blocks new tasks without acquiring lock."""
+        if self._state == SemaphoreState.idle:
+            self._state = SemaphoreState.user_typing
+
+    def mark_idle(self) -> None:
+        """Called when user clears input — allow tasks again."""
+        if self._state == SemaphoreState.user_typing:
+            self._state = SemaphoreState.idle
+
     @property
     def is_available_for_tasks(self) -> bool:
-        """True when no LLM or task is running (typing is fine — lock is free)."""
-        return self._state in (SemaphoreState.idle, SemaphoreState.user_typing)
+        """True only when idle — user_typing blocks new tasks."""
+        return self._state == SemaphoreState.idle
 
     def release(self) -> None:
         """Release the lock — restores pre-task state or returns to idle."""

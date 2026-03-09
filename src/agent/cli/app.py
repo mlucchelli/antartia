@@ -29,6 +29,8 @@ if TYPE_CHECKING:
     from agent.runtime.runtime import Runtime
     from agent.runtime.semaphore import ExecutionSemaphore
 
+from agent.runtime.semaphore import SemaphoreState
+
 
 def _is_real_terminal() -> bool:
     try:
@@ -63,6 +65,10 @@ class CLI:
         self._last_task: dict | None = None    # {type, source, success, at}
         self._running_task: dict | None = None  # {type, source} while executing
         self._semaphore: "ExecutionSemaphore | None" = None
+        self._today_km: float | None = None
+        self._db: "Database | None" = None
+        self._readline_active: bool = False  # True only during _get_input_async
+        self._scroll_row: int = 1           # next row to print in scroll region
 
     # -- Banner ------------------------------------------------------------
 
@@ -84,6 +90,8 @@ class CLI:
                 self._console.print()
 
         self._console.print()
+        # 4 mascot lines + 1 blank line printed = cursor now at row 6
+        self._scroll_row = len(_MASCOT_LINES) + 2
 
     # -- OutputHandler callbacks -------------------------------------------
 
@@ -110,29 +118,51 @@ class CLI:
 
     def on_llm_start(self, depth: int) -> None:
         if depth == 0:
-            self._console.print("  [dim cyan]▸ reasoning...[/dim cyan]")
+            self._print_to_scroll("  [dim cyan]▸ reasoning...[/dim cyan]")
         else:
-            self._console.print(f"  [dim cyan]▸ reasoning... ({depth})[/dim cyan]")
+            self._print_to_scroll(f"  [dim cyan]▸ reasoning... ({depth})[/dim cyan]")
 
     def on_vision_start(self, filename: str) -> None:
-        self._console.print(f"  [dim magenta]◈ analyzing {filename}[/dim magenta]")
+        self._print_to_scroll(f"  [dim magenta]◈ analyzing {filename}[/dim magenta]")
 
     def on_action_start(self, action_type: str) -> None:
         # Always show tool calls; hide send_message/finish noise
         if action_type in ("send_message", "finish"):
             return
-        self._console.print(f"  [dim]⟳ {action_type}[/dim]")
+        self._print_to_scroll(f"  [dim]⟳ {action_type}[/dim]")
 
     def _print_to_scroll(self, markup: str) -> None:
-        """Print into the scroll region, preserving the input cursor position."""
-        if self._has_tty:
-            rows = self._rows()
-            self._write("\0337")                    # save cursor
-            self._write(f"\033[{rows - 3};1H")     # move to last row of scroll area
-            self._console.print(markup)             # prints + scrolls region up
-            self._write("\0338")                    # restore cursor to input row
-        else:
+        """Print into the scroll region using explicit row tracking.
+
+        Always positions the cursor using _scroll_row so we never depend on
+        terminal save-slot state (ANSI \033[s and DEC \0337 share a slot in
+        most terminals, causing clobbering when _render_status_bar fires during
+        readline).
+
+        readline case: inject above the prompt via N-3 jump + DEC save/restore.
+        All other cases: explicit absolute positioning at _scroll_row.
+        """
+        if not self._has_tty:
             self._console.print(markup)
+            return
+
+        rows = self._rows()
+        if self._readline_active:
+            # Cursor is at N-1 (readline); inject at bottom of scroll area.
+            self._write("\0337")
+            self._write(f"\033[{rows - 3};1H")
+            self._console.print(markup)
+            self._write("\0338")
+            self._scroll_row = rows - 3  # scroll region has now scrolled
+        else:
+            row = min(self._scroll_row, rows - 3)
+            # Measure actual rendered height before printing (handles multi-line responses)
+            with self._console.capture() as cap:
+                self._console.print(markup)
+            line_count = max(1, cap.get().count("\n"))
+            self._write(f"\033[{row};1H")
+            self._console.print(markup)
+            self._scroll_row = min(self._scroll_row + line_count, rows - 3)
 
     def on_task_progress(self, message: str) -> None:
         if not self._verbose:
@@ -165,6 +195,18 @@ class CLI:
         self._last_location = {"latitude": latitude, "longitude": longitude}
         self._location_updated_at = datetime.now().strftime("%d-%m-%y %H:%M")
         self._render_status_bar()
+        if self._db:
+            try:
+                asyncio.get_running_loop().create_task(self._refresh_distance())
+            except RuntimeError:
+                pass
+
+    async def _refresh_distance(self) -> None:
+        if self._db is None:
+            return
+        from agent.services.distance_service import DistanceService
+        self._today_km = await DistanceService(self._db).get_today_distance()
+        self._render_status_bar()
 
     def display(self, content: str) -> None:
         if self._debug and self._last_state:
@@ -174,7 +216,7 @@ class CLI:
             ))
 
         name = self._config.agent.name
-        self._console.print(f"[bold blue]{name}:[/bold blue] {escape(content)}")
+        self._print_to_scroll(f"[bold blue]{name}:[/bold blue] {escape(content)}")
 
     # -- Terminal helpers --------------------------------------------------
 
@@ -209,6 +251,12 @@ class CLI:
         totals = await TokenUsageRepository(db).get_total()
         self._total_tokens = totals["total"]
 
+        try:
+            from agent.services.distance_service import DistanceService
+            self._today_km = await DistanceService(db).get_today_distance()
+        except Exception:
+            self._today_km = 0.0
+
         self._render_status_bar()
 
     def _build_status_text(self) -> Text:
@@ -237,14 +285,14 @@ class CLI:
 
         if self._semaphore:
             state = self._semaphore.state.value
-            state_colors = {
-                "idle": "dim",
-                "user_typing": "dim",
-                "llm_running": "cyan",
-                "task_running": "yellow",
-            }
-            color = state_colors.get(state, "dim")
-            parts.append(f"[{color}]{state}[/{color}]")
+            if state == "idle":
+                parts.append("[dim]idle[/dim]")
+            elif state == "user_typing":
+                parts.append("[dim]typing[/dim]")
+            elif state == "llm_running":
+                parts.append("[cyan]llm_running[/cyan]")
+            elif state == "task_running":
+                parts.append("[yellow]task_running[/yellow]")
 
         if self._running_task:
             t = self._running_task
@@ -256,6 +304,9 @@ class CLI:
             parts.append(
                 f"[{color}]{icon}[/{color}] [dim]{t['type']} [{t['source']}] {t['at']}[/dim]"
             )
+
+        if self._today_km is not None:
+            parts.append(f"[dim]↗ {self._today_km} km[/dim]")
 
         parts.append(f"tokens: {self._total_tokens:,}")
         return Text.from_markup(sep.join(parts))
@@ -320,15 +371,35 @@ class CLI:
         self._write("\033[u")
 
     async def _get_input_async(self) -> str | None:
-        """Non-blocking input — ANSI setup on main thread, blocking input() in executor."""
+        """Non-blocking input with typing detection via readline buffer polling."""
+        import readline as _rl
+
+        async def _poll_typing() -> None:
+            """Poll readline buffer to detect typing and update semaphore state."""
+            await asyncio.sleep(0.1)  # let readline initialize before first check
+            while True:
+                await asyncio.sleep(0.05)
+                if self._semaphore is None:
+                    continue
+                buf = _rl.get_line_buffer().strip()
+                if buf and self._semaphore.is_idle:
+                    self._semaphore.mark_typing()
+                    self._render_status_bar()
+                elif not buf and self._semaphore.state == SemaphoreState.user_typing:
+                    self._semaphore.mark_idle()
+                    self._render_status_bar()
+
         if not self._has_tty:
             loop = asyncio.get_event_loop()
             return await loop.run_in_executor(None, self.get_user_input)
 
         rows = self._rows()
-        self._write("\0337")
+        saved_scroll_row = self._scroll_row   # save in Python — no terminal save slot
         self._render_input_area()
         self._write(f"\033[{rows - 1};1H\033[2K")
+
+        poller = asyncio.create_task(_poll_typing())
+        self._readline_active = True
         try:
             loop = asyncio.get_event_loop()
             result = await loop.run_in_executor(
@@ -337,7 +408,17 @@ class CLI:
             )
         except (EOFError, KeyboardInterrupt):
             result = None
-        self._write(f"\033[{rows - 1};1H\033[2K\0338")
+        finally:
+            self._readline_active = False
+            poller.cancel()
+            try:
+                await poller
+            except asyncio.CancelledError:
+                pass
+
+        self._write(f"\033[{rows - 1};1H\033[2K")
+        self._write(f"\033[{saved_scroll_row};1H")  # explicit restore — immune to slot clobbering
+        self._scroll_row = saved_scroll_row
         return result
 
     # -- Terminal setup/teardown -------------------------------------------
@@ -367,6 +448,7 @@ class CLI:
         status_refresh_interval: int = 300,
     ) -> None:
         self._semaphore = semaphore
+        self._db = db
         self._setup_terminal()
         self._render_banner()
         self._session_id = await runtime.start_session()
@@ -385,33 +467,34 @@ class CLI:
 
         try:
             while True:
-                # Wait for any running task/LLM to finish before showing prompt
-                if semaphore:
-                    if not semaphore.is_idle:
-                        async with self._thinking("Task running..."):
-                            await semaphore.acquire_typing()
-                    else:
-                        await semaphore.acquire_typing()
-                    self._render_status_bar()
+                # Wait for any running task/LLM to finish (without acquiring typing lock)
+                if semaphore and not semaphore.is_idle:
+                    async with self._thinking("Task running..."):
+                        while not semaphore.is_idle:
+                            await asyncio.sleep(0.1)
+                self._render_status_bar()
 
+                # Show prompt in idle state — poller in _get_input_async detects typing
                 user_input = await self._get_input_async()
 
                 if user_input is None or user_input.strip().lower() in ("quit", "exit"):
                     if semaphore:
-                        semaphore.release()
+                        semaphore.mark_idle()
                     break
 
                 if not user_input.strip():
                     if semaphore:
-                        semaphore.release()
+                        semaphore.mark_idle()
                     continue
 
-                # Transition lock to llm_running — keep holding it
+                # Acquire lock and transition to llm_running
+                # acquire_typing waits if a task is running, then sets user_typing
                 if semaphore:
+                    await semaphore.acquire_typing()
                     await semaphore.transition_to_llm()
                     self._render_status_bar()
 
-                self._console.print(f"[bold yellow]❯ [/bold yellow]{user_input}")
+                self._print_to_scroll(f"[bold yellow]❯ [/bold yellow]{escape(user_input)}")
                 async with self._thinking():
                     await runtime.process_message(self._session_id, user_input)
 

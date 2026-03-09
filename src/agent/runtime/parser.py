@@ -10,6 +10,7 @@ from agent.models.actions import (
     FinishAction,
     GetLatestLocationsAction,
     GetLocationsByDateAction,
+    GetDistanceAction,
     GetLogsAction,
     GetPhotosAction,
     GetTokenUsageAction,
@@ -47,6 +48,7 @@ ACTION_REGISTRY: dict[str, type[Action]] = {
     "clear_knowledge": ClearKnowledgeAction,
     "get_logs": GetLogsAction,
     "get_token_usage": GetTokenUsageAction,
+    "get_distance": GetDistanceAction,
 }
 
 

@@ -213,6 +213,8 @@ class Runtime:
                     return await self._tool_get_logs(payload)
                 case "get_token_usage":
                     return await self._tool_get_token_usage(payload)
+                case "get_distance":
+                    return await self._tool_get_distance(payload)
                 case _:
                     return f"unknown tool: {action_type}"
         except Exception as exc:
@@ -399,6 +401,16 @@ class Runtime:
         svc = KnowledgeService(self._config, self._require_db(), self._output)
         await svc.clear()
         return "knowledge base cleared — vector store and document records wiped"
+
+    async def _tool_get_distance(self, payload: dict) -> str:
+        from agent.services.distance_service import DistanceService
+        svc = DistanceService(self._require_db())
+        date = payload.get("date")
+        if date:
+            km = await svc.get_distance_for_date(date)
+            return f"{km} km on {date}"
+        km = await svc.get_today_distance()
+        return f"{km} km today"
 
     async def _tool_get_token_usage(self, payload: dict) -> str:
         from agent.db.token_usage_repo import TokenUsageRepository
