@@ -15,6 +15,7 @@ VALID_TASK_TYPES = {
     "upload_image",
     "publish_agent_message",
     "publish_weather_snapshot",
+    "create_reflection",
 }
 
 

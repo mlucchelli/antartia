@@ -29,7 +29,6 @@ if TYPE_CHECKING:
     from agent.runtime.runtime import Runtime
     from agent.runtime.semaphore import ExecutionSemaphore
 
-from agent.runtime.semaphore import SemaphoreState
 
 
 def _is_real_terminal() -> bool:
@@ -69,6 +68,7 @@ class CLI:
         self._db: "Database | None" = None
         self._readline_active: bool = False  # True only during _get_input_async
         self._scroll_row: int = 1           # next row to print in scroll region
+        self._task_spinner: "asyncio.Task[None] | None" = None
 
     # -- Banner ------------------------------------------------------------
 
@@ -172,12 +172,22 @@ class CLI:
     def on_task_start(self, task_type: str, source: str) -> None:
         self._running_task = {"type": task_type, "source": source}
         self._render_status_bar()
+        if self._has_tty:
+            try:
+                self._task_spinner = asyncio.get_running_loop().create_task(
+                    self._run_task_spinner(task_type)
+                )
+            except RuntimeError:
+                pass
 
     def on_tokens_used(self, count: int) -> None:
         self._total_tokens += count
         self._render_status_bar()
 
     def on_task_complete(self, task_type: str, source: str, success: bool) -> None:
+        if self._task_spinner:
+            self._task_spinner.cancel()
+            self._task_spinner = None
         self._running_task = None
         self._last_task = {
             "type": task_type,
@@ -361,6 +371,21 @@ class CLI:
             except asyncio.CancelledError:
                 pass
 
+    async def _run_task_spinner(self, label: str) -> None:
+        """Background spinner for scheduled tasks — same row as _thinking."""
+        frames = self._SPINNER_FRAMES
+        i = 0
+        while True:
+            rows = self._rows()
+            self._write(f"\033[s\033[{rows - 1};1H\033[2K")
+            self._console.print(
+                f"[bold yellow]❯ [/bold yellow][dim]{frames[i]} {label}[/dim]",
+                end="",
+            )
+            self._write("\033[u")
+            i = (i + 1) % len(frames)
+            await asyncio.sleep(0.08)
+
     def _render_input_area(self) -> None:
         if not self._has_tty:
             return
@@ -371,24 +396,8 @@ class CLI:
         self._write("\033[u")
 
     async def _get_input_async(self) -> str | None:
-        """Non-blocking input with typing detection via readline buffer polling."""
-        import readline as _rl
-
-        async def _poll_typing() -> None:
-            """Poll readline buffer to detect typing and update semaphore state."""
-            await asyncio.sleep(0.1)  # let readline initialize before first check
-            while True:
-                await asyncio.sleep(0.05)
-                if self._semaphore is None:
-                    continue
-                buf = _rl.get_line_buffer().strip()
-                if buf and self._semaphore.is_idle:
-                    self._semaphore.mark_typing()
-                    self._render_status_bar()
-                elif not buf and self._semaphore.state == SemaphoreState.user_typing:
-                    self._semaphore.mark_idle()
-                    self._render_status_bar()
-
+        """Non-blocking readline input. Semaphore stays idle during the wait;
+        acquire_typing() is called by the main loop only after non-empty input."""
         if not self._has_tty:
             loop = asyncio.get_event_loop()
             return await loop.run_in_executor(None, self.get_user_input)
@@ -398,7 +407,6 @@ class CLI:
         self._render_input_area()
         self._write(f"\033[{rows - 1};1H\033[2K")
 
-        poller = asyncio.create_task(_poll_typing())
         self._readline_active = True
         try:
             loop = asyncio.get_event_loop()
@@ -410,11 +418,6 @@ class CLI:
             result = None
         finally:
             self._readline_active = False
-            poller.cancel()
-            try:
-                await poller
-            except asyncio.CancelledError:
-                pass
 
         self._write(f"\033[{rows - 1};1H\033[2K")
         self._write(f"\033[{saved_scroll_row};1H")  # explicit restore — immune to slot clobbering
@@ -474,17 +477,12 @@ class CLI:
                             await asyncio.sleep(0.1)
                 self._render_status_bar()
 
-                # Show prompt in idle state — poller in _get_input_async detects typing
                 user_input = await self._get_input_async()
 
                 if user_input is None or user_input.strip().lower() in ("quit", "exit"):
-                    if semaphore:
-                        semaphore.mark_idle()
                     break
 
                 if not user_input.strip():
-                    if semaphore:
-                        semaphore.mark_idle()
                     continue
 
                 # Acquire lock and transition to llm_running

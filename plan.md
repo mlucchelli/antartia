@@ -561,8 +561,8 @@ python -m agent --config configs/expedition_config.json --session <id>    # resu
 | 21.5 | Token usage tracking: all LLM calls logged to DB, global counter, status bar, `get_token_usage` action | Done        |
 | 21.6 | Scroll region fix: explicit `_scroll_row` tracking, multi-line capture, `_readline_active` split | Done        |
 | 22   | Soul prompt: agent identity/essence injected in every LLM call               | Postponed   |
-| 23   | Manual location insertion: `add_location` action (GPS fallback)              | Next        |
-| 24 | Daily reflection: `create_reflection` action + scheduled once-a-day task     | Planned     |
+| 23   | Manual location insertion: `add_location` action (GPS fallback)              | Done        |
+| 24   | Daily reflection: `create_reflection` action + scheduled once-a-day task     | Next        |
 | 25 | Twitter/X: `post_tweet` + `tweet_image` actions, local storage, max 5/day   | Planned     |
 | 26 | Photo appreciation: emotional/scientific/touristic appraisal added to vision | Planned     |
 | 27 | Route analysis: `analyze_route` action — heading, conditions, prediction     | Planned     |

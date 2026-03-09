@@ -94,6 +94,12 @@ class KnowledgeConfig(BaseModel):
     n_results: int = 5
 
 
+class ReflectionConfig(BaseModel):
+    hour_local: int = 21  # hour in expedition timezone to trigger daily reflection
+    min_words: int = 150
+    max_words: int = 300
+
+
 class RemoteSyncConfig(BaseModel):
     api_key_env: str = "REMOTE_SYNC_API_KEY"
     base_url: str = Field(default_factory=lambda: os.environ["REMOTE_SYNC_BASE_URL"])
@@ -118,6 +124,7 @@ class Config(BaseModel):
     image_preprocessing: ImagePreprocessingConfig = Field(default_factory=ImagePreprocessingConfig)
     weather: WeatherConfig = Field(default_factory=WeatherConfig)
     knowledge: KnowledgeConfig = Field(default_factory=KnowledgeConfig)
+    reflection: ReflectionConfig = Field(default_factory=ReflectionConfig)
     remote_sync: RemoteSyncConfig = Field(default_factory=RemoteSyncConfig)
 
     @classmethod

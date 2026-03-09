@@ -55,6 +55,8 @@ class TaskRunner:
                     await self._publish_agent_message(payload)
                 case "publish_weather_snapshot":
                     await self._publish_weather_snapshot(payload)
+                case "create_reflection":
+                    await self._create_reflection(payload)
                 case _:
                     raise ValueError(f"unknown task type: {task_type}")
 
@@ -138,3 +140,10 @@ class TaskRunner:
 
     async def _publish_weather_snapshot(self, payload: dict) -> None:
         self._progress("publish_weather_snapshot: not yet implemented")
+
+    async def _create_reflection(self, payload: dict) -> None:
+        from agent.services.reflection_service import ReflectionService
+        date = payload.get("date")
+        svc = ReflectionService(self._config, self._db, self._output)
+        content = await svc.create_daily_reflection(date)
+        self._progress(f"reflection saved ({len(content.split())} words)")

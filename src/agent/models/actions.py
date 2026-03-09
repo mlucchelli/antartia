@@ -125,3 +125,7 @@ class GetDistanceAction(ToolAction):
 
 class AddLocationAction(ToolAction):
     type: str = "add_location"
+
+
+class GetReflectionsAction(ToolAction):
+    type: str = "get_reflections"

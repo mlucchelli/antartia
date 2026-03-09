@@ -29,6 +29,7 @@ class Scheduler:
         self._semaphore = semaphore
         self._task_runner: object | None = None  # set after construction to avoid circular import
         self._last_weather_hour: int | None = None
+        self._last_reflection_date: str | None = None
 
     def set_task_runner(self, runner: "TaskRunner") -> None:
         self._task_runner = runner
@@ -42,14 +43,19 @@ class Scheduler:
 
     async def _tick(self) -> None:
         if not self._semaphore.is_available_for_tasks:
+            logger.info("Scheduler tick — skipped (semaphore: %s)", self._semaphore.state.value)
             return
 
+        logger.info("Scheduler tick — semaphore: %s", self._semaphore.state.value)
         tasks_repo = TasksRepository(self._db)
         await self._generate_due_tasks(tasks_repo)
 
         task = await tasks_repo.claim_next()
         if task is None:
+            logger.info("Scheduler tick — no pending tasks")
             return
+
+        logger.info("Scheduler: claiming task id=%s type=%s", task["id"], task["type"])
 
         if self._task_runner is None:
             logger.warning("Scheduler: no task runner set, releasing task %s", task["id"])
@@ -66,12 +72,23 @@ class Scheduler:
             self._semaphore.release()
 
     async def _generate_due_tasks(self, tasks_repo: TasksRepository) -> None:
-        """Insert a fetch_weather task if we're in a scheduled hour and haven't done it yet."""
-        now = datetime.now(timezone.utc)
-        current_hour = now.hour
-        schedule_hours = self._config.weather.schedule_hours
+        """Insert scheduled tasks when due."""
+        from zoneinfo import ZoneInfo
+        tz = ZoneInfo(self._config.agent.timezone)
+        now_local = datetime.now(tz=tz)
+        now_utc = datetime.now(timezone.utc)
 
-        if current_hour in schedule_hours and current_hour != self._last_weather_hour:
-            self._last_weather_hour = current_hour
+        # fetch_weather — keyed by UTC hour
+        current_hour_utc = now_utc.hour
+        if current_hour_utc in self._config.weather.schedule_hours and current_hour_utc != self._last_weather_hour:
+            self._last_weather_hour = current_hour_utc
             await tasks_repo.insert("fetch_weather", {}, source="scheduler")
-            logger.info("Scheduler: queued fetch_weather for hour %s", current_hour)
+            logger.info("Scheduler: queued fetch_weather for UTC hour %s", current_hour_utc)
+
+        # create_reflection — once per day at configured local hour
+        today_str = now_local.strftime("%Y-%m-%d")
+        if (now_local.hour >= self._config.reflection.hour_local
+                and self._last_reflection_date != today_str):
+            self._last_reflection_date = today_str
+            await tasks_repo.insert("create_reflection", {"date": today_str}, source="scheduler")
+            logger.info("Scheduler: queued create_reflection for %s", today_str)

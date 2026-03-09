@@ -217,6 +217,8 @@ class Runtime:
                     return await self._tool_get_distance(payload)
                 case "add_location":
                     return await self._tool_add_location(payload)
+                case "get_reflections":
+                    return await self._tool_get_reflections(payload)
                 case _:
                     return f"unknown tool: {action_type}"
         except Exception as exc:
@@ -425,6 +427,17 @@ class Runtime:
         loc = await LocationsRepository(self._require_db()).insert(lat, lon, recorded_at)
         self._output.update_location(lat, lon)
         return f"location added: id={loc['id']} lat={lat} lon={lon} at={recorded_at.isoformat()}"
+
+    async def _tool_get_reflections(self, payload: dict) -> str:
+        import json
+        from agent.db.reflections_repo import ReflectionsRepository
+        repo = ReflectionsRepository(self._require_db())
+        date = payload.get("date")
+        if date:
+            row = await repo.get_by_date(date)
+            return json.dumps(row, default=str) if row else f"no reflection found for {date}"
+        rows = await repo.get_recent(limit=payload.get("limit", 7))
+        return json.dumps(rows, default=str) if rows else "no reflections yet"
 
     async def _tool_get_distance(self, payload: dict) -> str:
         from agent.services.distance_service import DistanceService

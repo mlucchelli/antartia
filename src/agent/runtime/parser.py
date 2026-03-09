@@ -6,6 +6,7 @@ from agent.models.actions import (
     Action,
     AddKnowledgeAction,
     AddLocationAction,
+    GetReflectionsAction,
     ClearKnowledgeAction,
     CreateTaskAction,
     FinishAction,
@@ -51,6 +52,7 @@ ACTION_REGISTRY: dict[str, type[Action]] = {
     "get_token_usage": GetTokenUsageAction,
     "get_distance": GetDistanceAction,
     "add_location": AddLocationAction,
+    "get_reflections": GetReflectionsAction,
 }
 
 

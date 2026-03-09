@@ -46,6 +46,7 @@ class Database:
         await self._create_knowledge_docs_table()
         await self._create_activity_logs_table()
         await self._create_token_usage_table()
+        await self._create_reflections_table()
         await self._conn.commit()
 
     async def _create_locations_table(self) -> None:
@@ -177,6 +178,17 @@ class Database:
                 prompt_tokens     INTEGER NOT NULL DEFAULT 0,
                 completion_tokens INTEGER NOT NULL DEFAULT 0,
                 created_at        TEXT NOT NULL
+            )
+        """)
+
+    async def _create_reflections_table(self) -> None:
+        await self._conn.execute("""
+            CREATE TABLE IF NOT EXISTS reflections (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                date       TEXT    NOT NULL UNIQUE,
+                content    TEXT    NOT NULL,
+                word_count INTEGER,
+                created_at TEXT    NOT NULL
             )
         """)
 
