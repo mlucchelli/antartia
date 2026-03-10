@@ -65,7 +65,7 @@ class RouteAnalysis:
 
     def to_text(self) -> str:
         lines: list[str] = []
-        lines.append(f"Route analysis — {self.analyzed_at} UTC  (last {self.window_hours}h window)")
+        lines.append(f"Route analysis — {self.analyzed_at} UTC  (today since 00:00 local)")
         if self.latitude is not None:
             lines.append(f"Position: {self.latitude:.4f}, {self.longitude:.4f}  ({self.point_count} fix(es) today)")
         else:
@@ -133,11 +133,14 @@ class RouteAnalysisService:
         self._timezone = timezone
 
     async def analyze(self, hours: int = 12) -> RouteAnalysis:
-        from datetime import timedelta
+        tz = ZoneInfo(self._timezone)
+        now_local = datetime.now(tz=tz)
+        today_midnight = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+        since_iso = today_midnight.isoformat()
+        hours = max(1, int((now_local - today_midnight).total_seconds() / 3600))
+        date = now_local.strftime("%Y-%m-%d")
         now_utc = datetime.now(timezone.utc)
-        since_iso = (now_utc - timedelta(hours=hours)).isoformat()
-        date = now_utc.strftime("%Y-%m-%d")
-        now_label = now_utc.strftime("%Y-%m-%d %H:%M")
+        now_label = now_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
 
         points = await LocationsRepository(self._db).get_since(since_iso)
         if len(points) < 3:

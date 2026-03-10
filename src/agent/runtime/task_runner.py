@@ -120,7 +120,6 @@ class TaskRunner:
 
     async def _fetch_weather(self, payload: dict) -> None:
         from agent.services.weather_service import WeatherService
-
         lat = payload.get("latitude")
         lon = payload.get("longitude")
         svc = WeatherService(self._config, self._db)
@@ -130,9 +129,52 @@ class TaskRunner:
             f"wind {s['wind_speed']} km/h gusts {s['wind_gusts']} km/h · "
             f"snow depth {s['snow_depth']}m · {s['condition']}"
         )
+        # auto-sync
+        await self._publish_weather_snapshot({})
 
     async def _publish_daily_progress(self, payload: dict) -> None:
-        self._progress("publish_daily_progress: not yet implemented")
+        from datetime import date as date_type
+        from zoneinfo import ZoneInfo
+        from agent.db.locations_repo import LocationsRepository
+        from agent.db.photos_repo import PhotosRepository
+        from agent.db.token_usage_repo import TokenUsageRepository
+        from agent.db.weather_repo import WeatherRepository
+        from agent.services.distance_service import DistanceService
+        from agent.services.remote_sync_service import RemoteSyncService
+
+        tz       = ZoneInfo(self._config.agent.timezone)
+        today    = datetime.now(tz=tz).strftime("%Y-%m-%d")
+        start    = date_type.fromisoformat(self._config.agent.start_date)
+        exp_day  = (date_type.fromisoformat(today) - start).days + 1
+
+        all_locs = await LocationsRepository(self._db).get_all()
+        svc      = DistanceService(self._db, self._config.agent.timezone)
+        total_km = sum(
+            svc._haversine(
+                all_locs[i-1]["latitude"], all_locs[i-1]["longitude"],
+                all_locs[i]["latitude"],   all_locs[i]["longitude"],
+            )
+            for i in range(1, len(all_locs))
+        )
+        photos_total   = len(await PhotosRepository(self._db).get_all(vision_status="done"))
+        wildlife_total = await PhotosRepository(self._db).get_wildlife_count()
+        temps          = await WeatherRepository(self._db).get_all_time_temps()
+        latest         = await LocationsRepository(self._db).get_latest(limit=1)
+        position       = {"latitude": latest[0]["latitude"], "longitude": latest[0]["longitude"]} if latest else None
+        tokens         = await TokenUsageRepository(self._db).get_total()
+
+        result = await RemoteSyncService(self._config, self._output, self._db).push("/api/progress", {
+            "expedition_day":           exp_day,
+            "distance_km_total":        round(total_km, 2),
+            "photos_captured_total":    photos_total,
+            "wildlife_spotted_total":   wildlife_total,
+            "temperature_min_all_time": temps["min"],
+            "temperature_max_all_time": temps["max"],
+            "current_position":         position,
+            "tokens_used_total":        tokens["total"],
+            "published_at":             datetime.now(timezone.utc).isoformat(),
+        })
+        self._progress("daily progress published" if result["ok"] else f"publish_daily_progress error: {result['error']}")
 
     async def _publish_route_analysis(self, payload: dict) -> None:
         import json
@@ -145,7 +187,7 @@ class TaskRunner:
             self._progress("publish_route_analysis: no route analysis found")
             return
         nearest = json.loads(a.get("nearest_sites_json") or "[]")
-        result = await RemoteSyncService(self._config, self._output).push("/api/route-analysis", {
+        result = await RemoteSyncService(self._config, self._output, self._db).push("/api/route-analysis", {
             "analyzed_at":     a["analyzed_at"],
             "date":            a["date"],
             "window_hours":    a["window_hours"],
@@ -203,7 +245,7 @@ class TaskRunner:
                 },
             }],
         }
-        result = await RemoteSyncService(self._config, self._output).push("/api/track", geojson)
+        result = await RemoteSyncService(self._config, self._output, self._db).push("/api/track", geojson)
         self._progress(
             f"track published ({len(locs)} points, {round(total_km, 1)} km)" if result["ok"] else f"publish_route_snapshot error: {result['error']}"
         )
@@ -221,7 +263,7 @@ class TaskRunner:
         if not reflection:
             self._progress(f"publish_reflection: no reflection for {date}")
             return
-        result = await RemoteSyncService(self._config, self._output).push("/api/reflections", {
+        result = await RemoteSyncService(self._config, self._output, self._db).push("/api/reflections", {
             "date":       reflection["date"],
             "content":    reflection["content"],
             "created_at": reflection["created_at"],
@@ -236,7 +278,7 @@ class TaskRunner:
             self._progress("publish_agent_message: content is required")
             return
         published_at = datetime.now(timezone.utc).isoformat()
-        result = await RemoteSyncService(self._config, self._output).push("/api/messages", {
+        result = await RemoteSyncService(self._config, self._output, self._db).push("/api/messages", {
             "content":      content,
             "published_at": published_at,
         })
@@ -253,7 +295,7 @@ class TaskRunner:
         if not w:
             self._progress("publish_weather_snapshot: no weather data available")
             return
-        result = await RemoteSyncService(self._config, self._output).push("/api/weather", {
+        result = await RemoteSyncService(self._config, self._output, self._db).push("/api/weather", {
             "latitude":             w["latitude"],
             "longitude":            w["longitude"],
             "temperature":          w["temperature"],
@@ -274,6 +316,8 @@ class TaskRunner:
         svc = ReflectionService(self._config, self._db, self._output)
         content = await svc.create_daily_reflection(date)
         self._progress(f"reflection saved ({len(content.split())} words)")
+        # auto-sync
+        await self._publish_reflection({"date": date})
 
     async def _analyze_route(self, payload: dict) -> None:
         from agent.db.route_analyses_repo import RouteAnalysesRepository
@@ -283,3 +327,6 @@ class TaskRunner:
         analysis = await svc.analyze(hours)
         await RouteAnalysesRepository(self._db).insert(analysis)
         self._progress(f"route analysis saved: {analysis.bearing_compass} {analysis.speed_kmh} km/h, {analysis.point_count} points")
+        repo = TasksRepository(self._db)
+        await repo.insert("publish_route_analysis", {}, source="scheduler")
+        await repo.insert("publish_daily_progress", {}, source="scheduler")

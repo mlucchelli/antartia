@@ -9,16 +9,23 @@ import httpx
 from agent.config.loader import Config
 
 if TYPE_CHECKING:
+    from agent.db.database import Database
     from agent.runtime.protocols import OutputHandler
 
 logger = logging.getLogger(__name__)
 
 
 class RemoteSyncService:
-    def __init__(self, config: Config, output: "OutputHandler | None" = None) -> None:
+    def __init__(
+        self,
+        config: Config,
+        output: "OutputHandler | None" = None,
+        db: "Database | None" = None,
+    ) -> None:
         self._base_url = config.remote_sync.base_url
         self._api_key  = config.remote_sync.api_key
         self._output   = output
+        self._db       = db
 
     def _headers(self) -> dict:
         return {"Authorization": f"Bearer {self._api_key}"}
@@ -38,22 +45,29 @@ class RemoteSyncService:
                 pass
 
     async def push(self, path: str, payload: dict) -> dict:
-        """POST JSON payload. Returns {"ok": True} or {"ok": False, "error": str}."""
+        """POST JSON payload. On failure queues for retry if DB available.
+        Returns {"ok": True}, {"ok": True, "queued": True}, or {"ok": False, "error": str}.
+        """
         headers = {**self._headers(), "Content-Type": "application/json"}
         self._notify_start()
         try:
             async with httpx.AsyncClient(timeout=30) as client:
                 r = await client.post(f"{self._base_url}{path}", json=payload, headers=headers)
                 r.raise_for_status()
+            logger.info("sync OK  %s", path)
             return {"ok": True}
         except Exception as exc:
-            logger.error("RemoteSyncService.push %s failed: %s", path, exc)
-            return {"ok": False, "error": str(exc)}
+            error = str(exc)
+            logger.warning("sync FAIL %s — %s", path, error)
+            if self._db:
+                await self._enqueue(path, payload, error)
+                return {"ok": True, "queued": True}
+            return {"ok": False, "error": error}
         finally:
             self._notify_end()
 
     async def push_photo(self, file_path: str, file_name: str, metadata: dict) -> dict:
-        """Multipart POST for /api/photos. Returns {"ok": True} or {"ok": False, "error": str}."""
+        """Multipart POST for /api/photos."""
         self._notify_start()
         try:
             with open(file_path, "rb") as f:
@@ -68,9 +82,50 @@ class RemoteSyncService:
                     data=data,
                 )
                 r.raise_for_status()
+            logger.info("sync OK  /api/photos (%s)", file_name)
             return {"ok": True}
         except Exception as exc:
-            logger.error("RemoteSyncService.push_photo %s failed: %s", file_name, exc)
-            return {"ok": False, "error": str(exc)}
+            error = str(exc)
+            logger.warning("sync FAIL /api/photos (%s) — %s", file_name, error)
+            # photos can't be queued as JSON — return error directly
+            return {"ok": False, "error": error}
         finally:
             self._notify_end()
+
+    async def retry_pending(self) -> None:
+        """Retry all pending queued items. Called by the scheduler each tick."""
+        if not self._db:
+            return
+        from agent.db.sync_queue_repo import SyncQueueRepository
+        repo = SyncQueueRepository(self._db)
+        pending = await repo.get_pending()
+        if not pending:
+            return
+        logger.info("sync retry — %d pending item(s)", len(pending))
+        headers = {**self._headers(), "Content-Type": "application/json"}
+        for item in pending:
+            path    = item["path"]
+            attempt = item["attempts"] + 1
+            try:
+                payload = json.loads(item["payload_json"])
+                async with httpx.AsyncClient(timeout=30) as client:
+                    r = await client.post(f"{self._base_url}{path}", json=payload, headers=headers)
+                    r.raise_for_status()
+                await repo.mark_sent(item["id"])
+                logger.info("sync retry OK  %s (attempt %d)", path, attempt)
+            except Exception as exc:
+                error = str(exc)
+                await repo.record_attempt(item["id"], error)
+                remaining = item["max_attempts"] - attempt
+                if remaining > 0:
+                    logger.warning("sync retry FAIL %s (attempt %d, %d left) — %s", path, attempt, remaining, error)
+                else:
+                    logger.error("sync retry GIVE UP %s after %d attempts — %s", path, attempt, error)
+
+    async def _enqueue(self, path: str, payload: dict, error: str) -> None:
+        from agent.db.sync_queue_repo import SyncQueueRepository
+        repo = SyncQueueRepository(self._db)
+        item_id = await repo.enqueue(path, json.dumps(payload, ensure_ascii=False))
+        await repo.record_attempt(item_id, error)
+        pending = await repo.count_pending()
+        logger.warning("sync queued %s (id=%s) — %d item(s) pending retry", path, item_id, pending)

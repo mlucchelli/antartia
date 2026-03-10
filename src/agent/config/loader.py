@@ -16,6 +16,7 @@ class AgentConfig(BaseModel):
     temperature: float = 0.7
     max_tokens: int = 500
     timezone: str = "America/Argentina/Buenos_Aires"
+    start_date: str = "2026-03-17"  # expedition start date for expedition_day calculation
 
 
 class PersonalityConfig(BaseModel):

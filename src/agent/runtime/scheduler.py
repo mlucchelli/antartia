@@ -52,6 +52,10 @@ class Scheduler:
         tasks_repo = TasksRepository(self._db)
         await self._generate_due_tasks(tasks_repo)
 
+        # retry any queued sync items
+        from agent.services.remote_sync_service import RemoteSyncService
+        await RemoteSyncService(self._config, db=self._db).retry_pending()
+
         task = await tasks_repo.claim_next()
         if task is None:
             logger.info("Scheduler tick — no pending tasks")

@@ -6,7 +6,8 @@
     "vision_model": "qwen2.5vl:7b",
     "temperature": 0.7,
     "max_tokens": 1024,
-    "timezone": "America/Argentina/Buenos_Aires"
+    "timezone": "America/Argentina/Buenos_Aires",
+    "start_date": "2026-03-17"
   },
   "personality": {
     "tone": "precise",
@@ -112,7 +113,8 @@
         "description": "Display a message to the user. Can appear anywhere alongside other actions — use it for progress updates, intermediate results, or the final reply.",
         "parameters": {
           "payload.content": "string — the message text"
-        }
+        },
+        "example": {"type": "send_message", "payload": {"content": "Wind at 23 km/h, temperature -2°C."}}
       },
       {
         "type": "finish",

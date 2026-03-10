@@ -48,6 +48,7 @@ class Database:
         await self._create_token_usage_table()
         await self._create_reflections_table()
         await self._create_route_analyses_table()
+        await self._create_sync_queue_table()
         await self._conn.commit()
 
     async def _create_locations_table(self) -> None:
@@ -246,5 +247,20 @@ class Database:
                 error       TEXT,
                 indexed_at  TEXT,
                 created_at  TEXT    NOT NULL
+            )
+        """)
+
+    async def _create_sync_queue_table(self) -> None:
+        await self._conn.execute("""
+            CREATE TABLE IF NOT EXISTS sync_queue (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                path            TEXT    NOT NULL,
+                payload_json    TEXT    NOT NULL,
+                attempts        INTEGER NOT NULL DEFAULT 0,
+                max_attempts    INTEGER NOT NULL DEFAULT 3,
+                status          TEXT    NOT NULL DEFAULT 'pending',
+                last_error      TEXT,
+                created_at      TEXT    NOT NULL,
+                last_attempt_at TEXT
             )
         """)
