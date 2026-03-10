@@ -107,14 +107,18 @@ class RouteAnalysisConfig(BaseModel):
 
 
 class RemoteSyncConfig(BaseModel):
-    api_key_env: str = "REMOTE_SYNC_API_KEY"
-    base_url: str = Field(default_factory=lambda: os.environ["REMOTE_SYNC_BASE_URL"])
+    api_key_env:  str = "REMOTE_SYNC_API_KEY"
+    base_url_env: str = "REMOTE_SYNC_BASE_URL"
     max_images_per_batch: int = 3
-    max_images_per_day: int = 10
+    max_images_per_day:   int = 10
 
     @property
     def api_key(self) -> str:
-        return os.environ[self.api_key_env]
+        return os.environ.get(self.api_key_env, "")
+
+    @property
+    def base_url(self) -> str:
+        return os.environ.get(self.base_url_env, "").rstrip("/")
 
 
 class Config(BaseModel):

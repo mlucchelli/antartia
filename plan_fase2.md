@@ -48,12 +48,13 @@ Phase 2 completes the **outbound publishing layer** (agent → Railway server). 
 | 27.5 | Semaphore fix: remove `_poll_typing` + task spinner during background tasks                       | ✅ Done             |
 | 27.6 | Prompt improvements (personality, vision, scoring, system_prompt, actions) + eval framework      | ✅ Done             |
 | 28   | Photo model: latitude + longitude at process time + `tags` column + `get_wildlife_count`          | ✅ Done             |
-| 29   | RemoteSyncService + config (`start_date`, `base_url_env`) + DB helpers                            | 🔜 Next             |
-| 30   | `publish_reflection` + `publish_route_analysis` actions                                           | 📋 Planned          |
-| 31   | `publish_daily_progress`: expedition_day, all-time stats, wildlife, `tokens_used_total`           | 📋 Planned          |
-| 32   | `upload_image` real implementation: multipart POST + tags + GPS in metadata                       | 📋 Planned          |
-| 33   | `agent_quote` auto-generation at scoring time                                                     | 📋 Planned          |
-| 34   | Twitter/X integration                                                                              | 📋 Planned          |
+| 29   | RemoteSyncService + config (`base_url_env` lazy fix) + `get_all_time_temps` DB helper             | 🔜 Next             |
+| 30   | Simple JSON publishes: `publish_reflection` + `publish_agent_message` + `publish_weather_snapshot`| 📋 Planned          |
+| 31   | Route publishes: `publish_route_analysis` (nav snapshot) + `publish_route_snapshot` (GeoJSON track)| 📋 Planned         |
+| 32   | `agent_quote` auto-generation at scoring time (before upload so it travels with the image)        | 📋 Planned          |
+| 33   | `upload_image` real implementation: multipart POST + tags + GPS + quote in metadata               | 📋 Planned          |
+| 34   | `publish_daily_progress`: expedition_day (`start_date` added here), all-time stats, tokens       | 📋 Planned          |
+| 35   | Twitter/X integration                                                                              | 📋 Planned          |
 
 ---
 
@@ -282,23 +283,28 @@ class RemoteSyncService:
 
 #### `src/agent/config/loader.py`
 
-Add `start_date: str` to `AgentConfig`:
+Fix `RemoteSyncConfig` — replace the eagerly-evaluated `base_url` field (crashes at startup if env var missing) with a lazy `base_url_env` + property pattern matching `api_key`:
 ```python
-start_date: str = "2026-03-17"
+class RemoteSyncConfig(BaseModel):
+    api_key_env:  str = "REMOTE_SYNC_API_KEY"
+    base_url_env: str = "REMOTE_SYNC_BASE_URL"
+    max_images_per_batch: int = 3
+    max_images_per_day:   int = 10
+
+    @property
+    def api_key(self) -> str:
+        return os.environ.get(self.api_key_env, "")
+
+    @property
+    def base_url(self) -> str:
+        return os.environ.get(self.base_url_env, "").rstrip("/")
 ```
 
-Add `base_url_env: str` to `RemoteSyncConfig`:
-```python
-base_url_env: str = "REMOTE_SYNC_BASE_URL"
-```
+(`start_date` is added to `AgentConfig` in c34 when it is actually used.)
 
 #### `configs/expedition_config.json`
 
 ```json
-"agent": {
-  "start_date": "2026-03-17",
-  ...
-},
 "remote_sync": {
   "base_url_env": "REMOTE_SYNC_BASE_URL",
   "api_key_env": "REMOTE_SYNC_API_KEY",
@@ -333,11 +339,17 @@ REMOTE_SYNC_API_KEY=your_key
 
 ---
 
-## Commit 30 — `publish_reflection` + `publish_route_analysis`
+## Commit 30 — Simple JSON publishes: reflection + agent_message + weather_snapshot
 
 ### Design
 
-Two simple publish actions: each reads one DB record and POSTs it. Both default to the most recent record if no date is specified. No `summary` field in route-analysis payload (redundant — frontend renders its own).
+Three straightforward publish actions — each reads one DB record and POSTs a flat JSON body. No complex aggregation. `publish_agent_message` gets its real push (currently saves locally only). These are the easiest endpoints to implement and validate end-to-end.
+
+| Action | Endpoint | Source |
+|--------|----------|--------|
+| `publish_reflection` | `POST /api/reflections` | `reflections` table — one row per day |
+| `publish_agent_message` | `POST /api/messages` | content from payload (no DB lookup needed) |
+| `publish_weather_snapshot` | `POST /api/weather` | latest row in `weather_snapshots` |
 
 ### Changed files
 
@@ -347,7 +359,120 @@ Two simple publish actions: each reads one DB record and POSTs it. Both default 
 class PublishReflectionAction(ToolAction):
     type: Literal["publish_reflection"] = "publish_reflection"
     payload: dict = {}   # optional: {"date": "YYYY-MM-DD"}
+```
 
+#### `src/agent/runtime/parser.py`
+
+Register:
+```python
+"publish_reflection": PublishReflectionAction,
+```
+
+#### `src/agent/runtime/runtime.py`
+
+```python
+async def _tool_publish_reflection(self, payload: dict) -> str:
+    date = payload.get("date") or _local_today(self._config.agent.timezone)
+    reflection = await ReflectionsRepository(self._require_db()).get_by_date(date)
+    if not reflection:
+        return f"no reflection for {date}"
+    result = await RemoteSyncService(self._config).push("/api/reflections", {
+        "date":       reflection["date"],
+        "content":    reflection["content"],
+        "created_at": reflection["created_at"],
+    })
+    return f"reflection published for {date}" if result["ok"] else f"error: {result['error']}"
+
+async def _tool_publish_agent_message(self, payload: dict) -> str:
+    # replace existing stub — now does the real push
+    content = payload.get("content", "").strip()
+    if not content:
+        return "error: content is required"
+    published_at = datetime.now(timezone.utc).isoformat()
+    result = await RemoteSyncService(self._config).push("/api/messages", {
+        "content":      content,
+        "published_at": published_at,
+    })
+    if result["ok"]:
+        # also persist locally
+        await MessagesRepository(self._require_db()).insert("system", "assistant", content)
+        return "message published"
+    return f"error: {result['error']}"
+
+async def _tool_publish_weather_snapshot(self, payload: dict) -> str:
+    # replace existing stub
+    w = await WeatherRepository(self._require_db()).get_latest()
+    if not w:
+        return "no weather snapshot available"
+    result = await RemoteSyncService(self._config).push("/api/weather", {
+        "latitude":             w["latitude"],
+        "longitude":            w["longitude"],
+        "temperature":          w["temperature"],
+        "apparent_temperature": w["apparent_temperature"],
+        "wind_speed":           w["wind_speed"],
+        "wind_gusts":           w["wind_gusts"],
+        "wind_direction":       w["wind_direction"],
+        "precipitation":        w["precipitation"],
+        "snowfall":             w["snowfall"],
+        "condition":            w["condition"],
+        "recorded_at":          w["recorded_at"],
+    })
+    return "weather published" if result["ok"] else f"error: {result['error']}"
+```
+
+#### `src/agent/db/tasks_repo.py`
+
+Add to `VALID_TASK_TYPES`:
+```python
+"publish_reflection",
+```
+
+#### `src/agent/runtime/task_runner.py`
+
+```python
+case "publish_reflection":
+    await self._runtime._tool_publish_reflection(payload)
+```
+
+#### `configs/expedition_config.json`
+
+Add `publish_reflection` action entry and action descriptions for all three. Update system prompt listing.
+
+### Test
+
+```bash
+# Via agent: "publish today's reflection"
+# Expect: POST /api/reflections → 200
+
+# Via agent: "send a message: Zodiac landing confirmed at Brown Bluff"
+# Expect: POST /api/messages → 200
+
+# Via agent: "publish weather snapshot"
+# Expect: POST /api/weather → 200
+```
+
+---
+
+## Commit 31 — Route publishes: `publish_route_analysis` + `publish_route_snapshot`
+
+### Design
+
+Two route-related publish actions, both currently stubbed.
+
+| Action | Endpoint | Source |
+|--------|----------|--------|
+| `publish_route_analysis` | `POST /api/route-analysis` | Latest row in `route_analyses` table (nav snapshot computed every 12h) |
+| `publish_route_snapshot` | `POST /api/track` | **All** rows in `locations` table, built as a GeoJSON FeatureCollection |
+
+`publish_route_snapshot` is the more complex of the two — it reads every recorded GPS fix and assembles a GeoJSON LineString with Haversine total distance. This is the full route the ship has taken since day 1. The server upserts (always replaces the stored track).
+
+`publish_route_analysis` sends the structured navigation snapshot. `point_count` must be stored in `route_analyses` — verify the column exists or add it in `database.py` migration.
+
+### Changed files
+
+#### `src/agent/models/actions.py`
+
+```python
 class PublishRouteAnalysisAction(ToolAction):
     type: Literal["publish_route_analysis"] = "publish_route_analysis"
     payload: dict = {}   # optional: {"date": "YYYY-MM-DD"}
@@ -357,91 +482,110 @@ class PublishRouteAnalysisAction(ToolAction):
 
 Register:
 ```python
-"publish_reflection": PublishReflectionAction,
 "publish_route_analysis": PublishRouteAnalysisAction,
 ```
 
 #### `src/agent/runtime/runtime.py`
 
 ```python
-async def _tool_publish_reflection(self, payload: dict) -> str:
-    date = payload.get("date") or _local_today(self._config.agent.timezone)
-    db = self._require_db()
-    reflection = await ReflectionsRepository(db).get_by_date(date)
-    if not reflection:
-        return f"no reflection for {date}"
-    result = await RemoteSyncService(self._config).push("/api/reflections", {
-        "date": reflection["date"],
-        "content": reflection["content"],
-        "created_at": reflection["created_at"],
-    })
-    return f"reflection published for {date}" if result["ok"] else f"error: {result['error']}"
-
 async def _tool_publish_route_analysis(self, payload: dict) -> str:
     date = payload.get("date")
-    db = self._require_db()
-    repo = RouteAnalysesRepository(db)
-    a = await repo.get_by_date(date) if date else await repo.get_latest()
+    repo = RouteAnalysesRepository(self._require_db())
+    a = await (repo.get_by_date(date) if date else repo.get_latest())
     if not a:
         return "no route analysis found"
     nearest = json.loads(a.get("nearest_sites_json") or "[]")
     result = await RemoteSyncService(self._config).push("/api/route-analysis", {
-        "analyzed_at": a["analyzed_at"],
-        "date": a["date"],
-        "window_hours": a["window_hours"],
-        "position": {"latitude": a["latitude"], "longitude": a["longitude"]},
-        "bearing_deg": a["bearing_deg"],
-        "bearing_compass": a["bearing_compass"],
-        "speed_kmh": a["speed_kmh"],
-        "avg_speed_kmh": a["avg_speed_kmh"],
-        "distance_km": a["distance_km"],
-        "stopped": bool(a["stopped"]),
+        "analyzed_at":    a["analyzed_at"],
+        "date":           a["date"],
+        "window_hours":   a["window_hours"],
+        "point_count":    a.get("point_count", 0),
+        "position":       {"latitude": a["latitude"], "longitude": a["longitude"]},
+        "bearing_deg":    a["bearing_deg"],
+        "bearing_compass":a["bearing_compass"],
+        "speed_kmh":      a["speed_kmh"],
+        "avg_speed_kmh":  a["avg_speed_kmh"],
+        "distance_km":    a["distance_km"],
+        "stopped":        bool(a["stopped"]),
         "wind": {
-            "speed_kmh": a["wind_speed_kmh"],
-            "direction_deg": a["wind_direction_deg"],
-            "angle_label": a["wind_angle_label"],
+            "speed_kmh":    a["wind_speed_kmh"],
+            "direction_deg":a["wind_direction_deg"],
+            "angle_label":  a["wind_angle_label"],
         },
         "nearest_sites": nearest,
     })
     return f"route analysis published for {a['date']}" if result["ok"] else f"error: {result['error']}"
+
+async def _tool_publish_route_snapshot(self, payload: dict) -> str:
+    """Sends full GPS track as GeoJSON FeatureCollection to /api/track."""
+    locs = await LocationsRepository(self._require_db()).get_all()
+    if not locs:
+        return "no locations recorded yet"
+
+    # build haversine total
+    from agent.services.distance_service import DistanceService
+    coords = [[loc["longitude"], loc["latitude"]] for loc in locs]
+    svc = DistanceService(self._require_db(), self._config.agent.timezone)
+    total_km = sum(
+        svc._haversine(
+            locs[i-1]["latitude"], locs[i-1]["longitude"],
+            locs[i]["latitude"],   locs[i]["longitude"],
+        )
+        for i in range(1, len(locs))
+    )
+    now = datetime.now(timezone.utc).isoformat()
+    geojson = {
+        "type": "FeatureCollection",
+        "features": [{
+            "type": "Feature",
+            "geometry": {"type": "LineString", "coordinates": coords},
+            "properties": {
+                "recorded_at_first": locs[0]["recorded_at"],
+                "recorded_at_last":  locs[-1]["recorded_at"],
+                "total_points":      len(locs),
+                "distance_km":       round(total_km, 2),
+                "last_updated":      now,
+            },
+        }],
+    }
+    result = await RemoteSyncService(self._config).push("/api/track", geojson)
+    return f"track published ({len(locs)} points, {round(total_km, 1)} km)" if result["ok"] else f"error: {result['error']}"
 ```
 
 #### `src/agent/db/tasks_repo.py`
 
 Add to `VALID_TASK_TYPES`:
 ```python
-"publish_reflection",
 "publish_route_analysis",
+"publish_route_snapshot",
 ```
 
 #### `src/agent/runtime/task_runner.py`
 
 ```python
-case "publish_reflection":
-    await self._runtime._tool_publish_reflection(payload)
 case "publish_route_analysis":
     await self._runtime._tool_publish_route_analysis(payload)
+case "publish_route_snapshot":
+    await self._runtime._tool_publish_route_snapshot(payload)
 ```
 
 #### `configs/expedition_config.json`
 
-Add action entries and update system prompt listing.
+Add action entries for both. Update system prompt listing.
 
 ### Test
 
 ```bash
-# Via agent: "publish today's reflection"
-# Expect: POST to /api/reflections with date + content, 200 response
-
 # Via agent: "publish the route analysis"
-# Expect: POST to /api/route-analysis with structured fields, no summary key
-curl -s -X GET https://your-server.railway.app/api/route-analysis | jq 'keys'
-# Should NOT contain "summary"
+# Expect: POST /api/route-analysis → no "summary" key
+
+# Via agent: "publish the route snapshot"
+# Expect: POST /api/track → GeoJSON FeatureCollection, total_points > 0
 ```
 
 ---
 
-## Commit 31 — `publish_daily_progress`: full aggregation
+## Commit 32 — `publish_daily_progress`: full aggregation
 
 ### Design
 
@@ -463,15 +607,17 @@ async def _tool_publish_daily_progress(self, payload: dict) -> str:
     start = date_type.fromisoformat(self._config.agent.start_date)
     expedition_day = (date_type.fromisoformat(today_str) - start).days + 1
 
-    # all-time distance (reuse haversine from route_analysis_service)
-    from agent.services.route_analysis_service import _haversine
+    # all-time distance (reuse DistanceService._haversine)
+    from agent.services.distance_service import DistanceService
     all_locs = await LocationsRepository(db).get_all()
-    total_km = 0.0
-    for i in range(1, len(all_locs)):
-        total_km += _haversine(
+    svc = DistanceService(db, self._config.agent.timezone)
+    total_km = sum(
+        svc._haversine(
             all_locs[i-1]["latitude"], all_locs[i-1]["longitude"],
             all_locs[i]["latitude"],   all_locs[i]["longitude"],
         )
+        for i in range(1, len(all_locs))
+    )
 
     photos_total   = len(await PhotosRepository(db).get_all(vision_status="done"))
     wildlife_total = await PhotosRepository(db).get_wildlife_count()
@@ -494,7 +640,7 @@ async def _tool_publish_daily_progress(self, payload: dict) -> str:
     return "daily progress published" if result["ok"] else f"error: {result['error']}"
 ```
 
-Note: `_haversine` is a module-level function in `route_analysis_service.py` — import directly rather than duplicating.
+Note: `_haversine` is called via `DistanceService` (same approach as `publish_route_snapshot`) to avoid duplicating math across modules.
 
 ### Test
 
@@ -509,7 +655,7 @@ sqlite3 data/expedition.db "SELECT SUM(prompt_tokens+completion_tokens) FROM tok
 
 ---
 
-## Commit 32 — `upload_image`: real multipart POST
+## Commit 33 — `upload_image`: real multipart POST
 
 ### Design
 

@@ -28,3 +28,6 @@ data/knowledge/processed/
 
 # Eval run results (local only)
 data/evals/runs/
+
+# Private agent reference docs (API keys, tokens)
+docs/private/

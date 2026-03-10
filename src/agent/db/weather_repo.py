@@ -65,6 +65,14 @@ class WeatherRepository:
             row = await cur.fetchone()
         return dict(row) if row else None
 
+    async def get_all_time_temps(self) -> dict:
+        """Return all-time MIN and MAX temperature across all weather snapshots."""
+        async with self._db.conn.execute(
+            "SELECT MIN(temperature), MAX(temperature) FROM weather_snapshots"
+        ) as cur:
+            row = await cur.fetchone()
+        return {"min": row[0], "max": row[1]}
+
     async def get_today(self) -> list[dict]:
         today = datetime.now(timezone.utc).date().isoformat()
         async with self._db.conn.execute(

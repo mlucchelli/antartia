@@ -222,7 +222,8 @@
   "remote_sync": {
     "api_key_env": "REMOTE_SYNC_API_KEY",
     "max_images_per_batch": 3,
-    "max_images_per_day": 10
+    "max_images_per_day": 10,
+    "base_url_env": "REMOTE_SYNC_BASE_URL"
   },
   "knowledge": {
     "embedding_model": "nomic-embed-text",
@@ -237,7 +238,10 @@
     "max_words": 300
   },
   "route_analysis": {
-    "schedule_hours": [0, 12],
+    "schedule_hours": [
+      0,
+      12
+    ],
     "window_hours": 12,
     "min_points": 3
   }
