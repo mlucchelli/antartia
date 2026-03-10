@@ -67,6 +67,8 @@ class CLI:
         self._today_km: float | None = None
         self._db: "Database | None" = None
         self._readline_active: bool = False  # True only during _get_input_async
+        self._sending: bool = False          # True while RemoteSyncService is pushing
+        self._sync_count: int = 0            # network requests sent today (from DB)
         self._scroll_row: int = 1           # next row to print in scroll region
         self._task_spinner: "asyncio.Task[None] | None" = None
 
@@ -184,6 +186,25 @@ class CLI:
         self._total_tokens += count
         self._render_status_bar()
 
+    def on_sync_start(self) -> None:
+        self._sending = True
+        self._render_status_bar()
+
+    def on_sync_end(self) -> None:
+        self._sending = False
+        if self._db:
+            import asyncio
+            loop = asyncio.get_event_loop()
+            loop.create_task(self._refresh_sync_count())
+        else:
+            self._sync_count += 1
+            self._render_status_bar()
+
+    async def _refresh_sync_count(self) -> None:
+        from agent.db.activity_logs_repo import ActivityLogsRepository
+        self._sync_count = await ActivityLogsRepository(self._db).get_network_count_today()
+        self._render_status_bar()
+
     def on_task_complete(self, task_type: str, source: str, success: bool) -> None:
         if self._task_spinner:
             self._task_spinner.cancel()
@@ -271,6 +292,9 @@ class CLI:
         except Exception:
             self._today_km = 0.0
 
+        from agent.db.activity_logs_repo import ActivityLogsRepository
+        self._sync_count = await ActivityLogsRepository(db).get_network_count_today()
+
         self._render_status_bar()
 
     def _build_status_text(self) -> Text:
@@ -321,6 +345,12 @@ class CLI:
 
         if self._today_km is not None:
             parts.append(f"[dim]↗ {self._today_km} km[/dim]")
+
+        net = f"⬆ {self._sync_count}"
+        if self._sending:
+            parts.append(f"[green]{net}[/green]")
+        else:
+            parts.append(f"[dim]{net}[/dim]")
 
         parts.append(f"tokens: {self._total_tokens:,}")
         return Text.from_markup(sep.join(parts))

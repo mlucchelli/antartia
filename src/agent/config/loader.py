@@ -108,7 +108,7 @@ class RouteAnalysisConfig(BaseModel):
 
 class RemoteSyncConfig(BaseModel):
     api_key_env:  str = "REMOTE_SYNC_API_KEY"
-    base_url_env: str = "REMOTE_SYNC_BASE_URL"
+    base_url_env: str = "SERVER_HOST"
     max_images_per_batch: int = 3
     max_images_per_day:   int = 10
 

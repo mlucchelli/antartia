@@ -15,12 +15,13 @@ class ActivityLogsRepository:
         action_type: str,
         payload: str,
         result: str,
+        is_network: bool = False,
     ) -> dict:
         created_at = datetime.now(timezone.utc).isoformat()
         async with self._db.conn.execute(
-            """INSERT INTO activity_logs (session_id, action_type, payload, result, created_at)
-               VALUES (?, ?, ?, ?, ?)""",
-            (session_id, action_type, payload[:500], result[:500], created_at),
+            """INSERT INTO activity_logs (session_id, action_type, payload, result, is_network, created_at)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (session_id, action_type, payload[:500], result[:500], 1 if is_network else 0, created_at),
         ) as cur:
             row_id = cur.lastrowid
         await self._db.conn.commit()
@@ -30,6 +31,15 @@ class ActivityLogsRepository:
             "action_type": action_type,
             "created_at": created_at,
         }
+
+    async def get_network_count_today(self) -> int:
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        async with self._db.conn.execute(
+            "SELECT COUNT(*) FROM activity_logs WHERE is_network=1 AND date(created_at)=?",
+            (today,),
+        ) as cur:
+            row = await cur.fetchone()
+        return row[0] if row else 0
 
     async def get_by_range(self, from_dt: str | None, to_dt: str | None) -> list[dict]:
         if from_dt and to_dt:

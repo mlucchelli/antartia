@@ -2,25 +2,45 @@ from __future__ import annotations
 
 import json
 import logging
+from typing import TYPE_CHECKING
 
 import httpx
 
 from agent.config.loader import Config
 
+if TYPE_CHECKING:
+    from agent.runtime.protocols import OutputHandler
+
 logger = logging.getLogger(__name__)
 
 
 class RemoteSyncService:
-    def __init__(self, config: Config) -> None:
+    def __init__(self, config: Config, output: "OutputHandler | None" = None) -> None:
         self._base_url = config.remote_sync.base_url
         self._api_key  = config.remote_sync.api_key
+        self._output   = output
 
     def _headers(self) -> dict:
         return {"Authorization": f"Bearer {self._api_key}"}
 
+    def _notify_start(self) -> None:
+        if self._output:
+            try:
+                self._output.on_sync_start()
+            except Exception:
+                pass
+
+    def _notify_end(self) -> None:
+        if self._output:
+            try:
+                self._output.on_sync_end()
+            except Exception:
+                pass
+
     async def push(self, path: str, payload: dict) -> dict:
         """POST JSON payload. Returns {"ok": True} or {"ok": False, "error": str}."""
         headers = {**self._headers(), "Content-Type": "application/json"}
+        self._notify_start()
         try:
             async with httpx.AsyncClient(timeout=30) as client:
                 r = await client.post(f"{self._base_url}{path}", json=payload, headers=headers)
@@ -29,9 +49,12 @@ class RemoteSyncService:
         except Exception as exc:
             logger.error("RemoteSyncService.push %s failed: %s", path, exc)
             return {"ok": False, "error": str(exc)}
+        finally:
+            self._notify_end()
 
     async def push_photo(self, file_path: str, file_name: str, metadata: dict) -> dict:
         """Multipart POST for /api/photos. Returns {"ok": True} or {"ok": False, "error": str}."""
+        self._notify_start()
         try:
             with open(file_path, "rb") as f:
                 file_bytes = f.read()
@@ -49,3 +72,5 @@ class RemoteSyncService:
         except Exception as exc:
             logger.error("RemoteSyncService.push_photo %s failed: %s", file_name, exc)
             return {"ok": False, "error": str(exc)}
+        finally:
+            self._notify_end()

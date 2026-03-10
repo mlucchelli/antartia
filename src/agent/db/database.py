@@ -177,9 +177,15 @@ class Database:
                 action_type TEXT NOT NULL,
                 payload     TEXT,
                 result      TEXT,
+                is_network  INTEGER NOT NULL DEFAULT 0,
                 created_at  TEXT NOT NULL
             )
         """)
+        # Migration: add is_network to existing DBs
+        try:
+            await self._conn.execute("ALTER TABLE activity_logs ADD COLUMN is_network INTEGER NOT NULL DEFAULT 0")
+        except Exception:
+            pass
 
     async def _create_token_usage_table(self) -> None:
         await self._conn.execute("""
