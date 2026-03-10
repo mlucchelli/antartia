@@ -106,7 +106,7 @@ class PhotoService:
 
         # ── Step 3: significance scoring ──────────────────────────────────────
         self._output.on_task_progress(f"scoring: {filename}")
-        score, scoring_usage = await self._score_significance(vision_result.description)
+        score, agent_quote, scoring_usage = await self._score_significance(vision_result.description)
         scoring_tokens = scoring_usage.get("prompt_tokens", 0) + scoring_usage.get("completion_tokens", 0)
         await token_repo.insert(
             model=self._config.agent.vision_model,
@@ -142,6 +142,7 @@ class PhotoService:
             vision_model=self._config.agent.vision_model,
             significance_score=score,
             is_remote_candidate=1 if is_candidate else 0,
+            agent_quote=agent_quote,
             processed=1,
             processed_at=datetime.now(timezone.utc).isoformat(),
             moved_to_path=str(moved_path),
@@ -149,8 +150,10 @@ class PhotoService:
             longitude=lon,
         )
 
-    async def _score_significance(self, description: str) -> tuple[float, dict]:
-        """Score description significance via Ollama. Returns (score 0.0–1.0, usage dict)."""
+    async def _score_significance(self, description: str) -> tuple[float, str | None, dict]:
+        """Score description significance via Ollama.
+        Returns (score 0.0–1.0, agent_quote or None, usage dict).
+        """
         prompt = self._config.photo_pipeline.scoring_prompt + description
 
         body = {
@@ -178,8 +181,11 @@ class PhotoService:
             raw = resp_json.get("response", "").strip()
             data = json.loads(raw)
             score = float(data.get("significance_score", 0.5))
-            return max(0.0, min(1.0, score)), usage
+            quote = data.get("agent_quote") or None
+            if isinstance(quote, str):
+                quote = quote.strip() or None
+            return max(0.0, min(1.0, score)), quote, usage
 
         except Exception as exc:
             logger.warning("Significance scoring failed (%s) — defaulting to 0.5", exc)
-            return 0.5, {}
+            return 0.5, None, {}
