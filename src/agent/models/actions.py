@@ -87,8 +87,12 @@ class UploadImageAction(ToolAction):
     type: str = "upload_image"
 
 
-class PublishAgentMessageAction(ToolAction):
-    type: str = "publish_agent_message"
+class PublishReflectionAction(ToolAction):
+    type: str = "publish_reflection"
+
+
+class CommentAction(ToolAction):
+    type: str = "comment"
 
 
 class PublishWeatherSnapshotAction(ToolAction):

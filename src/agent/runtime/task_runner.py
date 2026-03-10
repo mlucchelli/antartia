@@ -47,11 +47,13 @@ class TaskRunner:
                     await self._fetch_weather(payload)
                 case "publish_daily_progress":
                     await self._publish_daily_progress(payload)
+                case "publish_reflection":
+                    await self._publish_reflection(payload)
                 case "publish_route_snapshot":
                     await self._publish_route_snapshot(payload)
                 case "upload_image":
                     await self._upload_image(payload)
-                case "publish_agent_message":
+                case "comment":
                     await self._publish_agent_message(payload)
                 case "publish_weather_snapshot":
                     await self._publish_weather_snapshot(payload)
@@ -137,11 +139,61 @@ class TaskRunner:
         photo_id = payload.get("photo_id", "?")
         self._progress(f"upload_image: photo_id={photo_id} — not yet implemented")
 
+    async def _publish_reflection(self, payload: dict) -> None:
+        from zoneinfo import ZoneInfo
+        from agent.db.reflections_repo import ReflectionsRepository
+        from agent.services.remote_sync_service import RemoteSyncService
+        date = payload.get("date") or datetime.now(tz=ZoneInfo(self._config.agent.timezone)).strftime("%Y-%m-%d")
+        reflection = await ReflectionsRepository(self._db).get_by_date(date)
+        if not reflection:
+            self._progress(f"publish_reflection: no reflection for {date}")
+            return
+        result = await RemoteSyncService(self._config, self._output).push("/api/reflections", {
+            "date":       reflection["date"],
+            "content":    reflection["content"],
+            "created_at": reflection["created_at"],
+        })
+        self._progress(f"reflection published for {date}" if result["ok"] else f"publish_reflection error: {result['error']}")
+
     async def _publish_agent_message(self, payload: dict) -> None:
-        self._progress("publish_agent_message: not yet implemented")
+        from agent.db.messages_repo import MessagesRepository
+        from agent.services.remote_sync_service import RemoteSyncService
+        content = (payload.get("content") or "").strip()
+        if not content:
+            self._progress("publish_agent_message: content is required")
+            return
+        published_at = datetime.now(timezone.utc).isoformat()
+        result = await RemoteSyncService(self._config, self._output).push("/api/messages", {
+            "content":      content,
+            "published_at": published_at,
+        })
+        if result["ok"]:
+            await MessagesRepository(self._db).insert("system", "assistant", content)
+            self._progress("message published")
+        else:
+            self._progress(f"publish_agent_message error: {result['error']}")
 
     async def _publish_weather_snapshot(self, payload: dict) -> None:
-        self._progress("publish_weather_snapshot: not yet implemented")
+        from agent.db.weather_repo import WeatherRepository
+        from agent.services.remote_sync_service import RemoteSyncService
+        w = await WeatherRepository(self._db).get_latest()
+        if not w:
+            self._progress("publish_weather_snapshot: no weather data available")
+            return
+        result = await RemoteSyncService(self._config, self._output).push("/api/weather", {
+            "latitude":             w["latitude"],
+            "longitude":            w["longitude"],
+            "temperature":          w["temperature"],
+            "apparent_temperature": w["apparent_temperature"],
+            "wind_speed":           w["wind_speed"],
+            "wind_gusts":           w["wind_gusts"],
+            "wind_direction":       w["wind_direction"],
+            "precipitation":        w["precipitation"],
+            "snowfall":             w["snowfall"],
+            "condition":            w["condition"],
+            "recorded_at":          w["recorded_at"],
+        })
+        self._progress("weather published" if result["ok"] else f"publish_weather_snapshot error: {result['error']}")
 
     async def _create_reflection(self, payload: dict) -> None:
         from agent.services.reflection_service import ReflectionService

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+from datetime import datetime, timezone
 from typing import Any
 
 from agent.config.loader import Config
@@ -9,8 +10,10 @@ from agent.db.database import Database
 from agent.db.locations_repo import LocationsRepository
 from agent.db.messages_repo import MessagesRepository
 from agent.db.photos_repo import PhotosRepository
+from agent.db.reflections_repo import ReflectionsRepository
 from agent.db.tasks_repo import TasksRepository, VALID_TASK_TYPES
 from agent.db.weather_repo import WeatherRepository
+from agent.services.remote_sync_service import RemoteSyncService
 from agent.llm.client import LLMClient
 from agent.llm.prompt_builder import PromptBuilder
 from agent.models.actions import FinishAction, SendMessageAction, ToolAction
@@ -191,13 +194,15 @@ class Runtime:
                     return await self._tool_create_task(payload)
                 case "scan_photo_inbox":
                     return await self._tool_scan_photo_inbox(payload)
+                case "publish_reflection":
+                    return await self._tool_publish_reflection(payload)
                 case "publish_daily_progress":
                     return await self._tool_publish_daily_progress(payload)
                 case "publish_route_snapshot":
                     return await self._tool_publish_route_snapshot(payload)
                 case "upload_image":
                     return await self._tool_upload_image(payload)
-                case "publish_agent_message":
+                case "comment":
                     return await self._tool_publish_agent_message(payload)
                 case "publish_weather_snapshot":
                     return await self._tool_publish_weather_snapshot(payload)
@@ -253,6 +258,12 @@ class Runtime:
         except Exception as exc:
             logger.warning("Failed to log tokens: %s", exc)
 
+    _NETWORK_ACTIONS = {
+        "comment", "publish_reflection", "publish_weather_snapshot",
+        "publish_route_snapshot", "publish_route_analysis",
+        "publish_daily_progress", "upload_image",
+    }
+
     async def _log_activity(self, session_id: str, action_type: str, payload: dict, result: str) -> None:
         if self._db is None:
             return
@@ -263,6 +274,7 @@ class Runtime:
                 action_type=action_type,
                 payload=json.dumps(payload),
                 result=str(result),
+                is_network=action_type in self._NETWORK_ACTIONS,
             )
         except Exception as exc:
             logger.warning("Failed to log activity: %s", exc)
@@ -371,17 +383,51 @@ class Runtime:
             + (f' — quote saved: "{agent_quote[:80]}"' if agent_quote else "")
         )
 
+    async def _tool_publish_reflection(self, payload: dict) -> str:
+        from zoneinfo import ZoneInfo
+        date = payload.get("date") or datetime.now(tz=ZoneInfo(self._config.agent.timezone)).strftime("%Y-%m-%d")
+        reflection = await ReflectionsRepository(self._require_db()).get_by_date(date)
+        if not reflection:
+            return f"no reflection found for {date}"
+        result = await RemoteSyncService(self._config, self._output).push("/api/reflections", {
+            "date":       reflection["date"],
+            "content":    reflection["content"],
+            "created_at": reflection["created_at"],
+        })
+        return f"reflection published for {date}" if result["ok"] else f"error: {result['error']}"
+
     async def _tool_publish_agent_message(self, payload: dict) -> str:
-        content = payload.get("content")
+        content = (payload.get("content") or "").strip()
         if not content:
             return "error: content is required"
-        repo = MessagesRepository(self._require_db())
-        # Store message locally; remote publish in RemoteSyncService (commit 18)
-        msg = await repo.insert("system", "assistant", content)
-        return f"message saved locally (id={msg['id']}) — remote publish not yet implemented"
+        published_at = datetime.now(timezone.utc).isoformat()
+        result = await RemoteSyncService(self._config, self._output).push("/api/messages", {
+            "content":      content,
+            "published_at": published_at,
+        })
+        if result["ok"]:
+            await MessagesRepository(self._require_db()).insert("system", "assistant", content)
+            return "message published"
+        return f"error: {result['error']}"
 
     async def _tool_publish_weather_snapshot(self, payload: dict) -> str:
-        return "publish_weather_snapshot not yet implemented"
+        w = await WeatherRepository(self._require_db()).get_latest()
+        if not w:
+            return "no weather snapshot available"
+        result = await RemoteSyncService(self._config, self._output).push("/api/weather", {
+            "latitude":             w["latitude"],
+            "longitude":            w["longitude"],
+            "temperature":          w["temperature"],
+            "apparent_temperature": w["apparent_temperature"],
+            "wind_speed":           w["wind_speed"],
+            "wind_gusts":           w["wind_gusts"],
+            "wind_direction":       w["wind_direction"],
+            "precipitation":        w["precipitation"],
+            "snowfall":             w["snowfall"],
+            "condition":            w["condition"],
+            "recorded_at":          w["recorded_at"],
+        })
+        return "weather published" if result["ok"] else f"error: {result['error']}"
 
     async def _tool_search_knowledge(self, payload: dict) -> str:
         from agent.services.knowledge_service import KnowledgeService
