@@ -95,6 +95,10 @@ class CommentAction(ToolAction):
     type: str = "comment"
 
 
+class PublishRouteAnalysisAction(ToolAction):
+    type: str = "publish_route_analysis"
+
+
 class PublishWeatherSnapshotAction(ToolAction):
     type: str = "publish_weather_snapshot"
 

@@ -68,6 +68,13 @@
         "parameters": {}
       },
       {
+        "type": "publish_route_analysis",
+        "description": "Publish the latest (or date-specific) route analysis to the expedition website. Includes bearing, speed, wind, and nearest landing sites.",
+        "parameters": {
+          "payload.date": "optional string — YYYY-MM-DD, defaults to latest"
+        }
+      },
+      {
         "type": "publish_route_snapshot",
         "description": "Build a GeoJSON FeatureCollection of all recorded GPS coordinates and publish to the expedition website",
         "parameters": {}

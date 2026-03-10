@@ -12,6 +12,7 @@ VALID_TASK_TYPES = {
     "fetch_weather",
     "publish_reflection",
     "publish_daily_progress",
+    "publish_route_analysis",
     "publish_route_snapshot",
     "upload_image",
     "comment",

@@ -198,6 +198,8 @@ class Runtime:
                     return await self._tool_publish_reflection(payload)
                 case "publish_daily_progress":
                     return await self._tool_publish_daily_progress(payload)
+                case "publish_route_analysis":
+                    return await self._tool_publish_route_analysis(payload)
                 case "publish_route_snapshot":
                     return await self._tool_publish_route_snapshot(payload)
                 case "upload_image":
@@ -358,8 +360,71 @@ class Runtime:
         # Full implementation in RemoteSyncService (commit 18)
         return "publish_daily_progress not yet implemented"
 
+    async def _tool_publish_route_analysis(self, payload: dict) -> str:
+        from agent.db.route_analyses_repo import RouteAnalysesRepository
+        date = payload.get("date")
+        repo = RouteAnalysesRepository(self._require_db())
+        a = await (repo.get_by_date(date) if date else repo.get_latest())
+        if not a:
+            return "no route analysis found"
+        nearest = json.loads(a.get("nearest_sites_json") or "[]")
+        result = await RemoteSyncService(self._config, self._output).push("/api/route-analysis", {
+            "analyzed_at":     a["analyzed_at"],
+            "date":            a["date"],
+            "window_hours":    a["window_hours"],
+            "point_count":     a.get("point_count", 0),
+            "position":        {"latitude": a["latitude"], "longitude": a["longitude"]},
+            "bearing_deg":     a["bearing_deg"],
+            "bearing_compass": a["bearing_compass"],
+            "speed_kmh":       a["speed_kmh"],
+            "avg_speed_kmh":   a["avg_speed_kmh"],
+            "distance_km":     a["distance_km"],
+            "stopped":         bool(a["stopped"]),
+            "wind": {
+                "speed_kmh":     a["wind_speed_kmh"],
+                "direction_deg": a["wind_direction_deg"],
+                "angle_label":   a["wind_angle_label"],
+            },
+            "nearest_sites": nearest,
+        })
+        return f"route analysis published for {a['date']}" if result["ok"] else f"error: {result['error']}"
+
     async def _tool_publish_route_snapshot(self, payload: dict) -> str:
-        return "publish_route_snapshot not yet implemented"
+        locs = await LocationsRepository(self._require_db()).get_all()
+        if not locs:
+            return "no locations recorded yet"
+        from agent.services.distance_service import DistanceService
+        svc = DistanceService(self._require_db(), self._config.agent.timezone)
+        total_km = sum(
+            svc._haversine(
+                locs[i-1]["latitude"], locs[i-1]["longitude"],
+                locs[i]["latitude"],   locs[i]["longitude"],
+            )
+            for i in range(1, len(locs))
+        )
+        now = datetime.now(timezone.utc).isoformat()
+        geojson = {
+            "type": "FeatureCollection",
+            "features": [{
+                "type": "Feature",
+                "geometry": {
+                    "type": "LineString",
+                    "coordinates": [[loc["longitude"], loc["latitude"]] for loc in locs],
+                },
+                "properties": {
+                    "recorded_at_first": locs[0]["recorded_at"],
+                    "recorded_at_last":  locs[-1]["recorded_at"],
+                    "total_points":      len(locs),
+                    "distance_km":       round(total_km, 2),
+                    "last_updated":      now,
+                },
+            }],
+        }
+        result = await RemoteSyncService(self._config, self._output).push("/api/track", geojson)
+        return (
+            f"track published ({len(locs)} points, {round(total_km, 1)} km)"
+            if result["ok"] else f"error: {result['error']}"
+        )
 
     async def _tool_upload_image(self, payload: dict) -> str:
         photo_id = payload.get("photo_id")
