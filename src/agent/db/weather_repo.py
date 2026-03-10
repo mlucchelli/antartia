@@ -82,9 +82,12 @@ class WeatherRepository:
 
     async def get_today(self) -> list[dict]:
         today = datetime.now(timezone.utc).date().isoformat()
+        return await self.get_by_date(today)
+
+    async def get_by_date(self, date: str) -> list[dict]:
         async with self._db.conn.execute(
             "SELECT * FROM weather_snapshots WHERE date(recorded_at) = ? ORDER BY recorded_at ASC",
-            (today,),
+            (date,),
         ) as cur:
             rows = await cur.fetchall()
         return [dict(r) for r in rows]

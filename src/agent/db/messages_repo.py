@@ -30,18 +30,21 @@ class MessagesRepository:
 
     async def get_today(self, session_id: str | None = None) -> list[dict]:
         today = datetime.now(timezone.utc).date().isoformat()
+        return await self.get_by_date(today, session_id=session_id)
+
+    async def get_by_date(self, date: str, session_id: str | None = None) -> list[dict]:
         if session_id:
             async with self._db.conn.execute(
                 """SELECT * FROM agent_messages
                    WHERE date(timestamp) = ? AND session_id = ?
                    ORDER BY timestamp ASC""",
-                (today, session_id),
+                (date, session_id),
             ) as cur:
                 rows = await cur.fetchall()
         else:
             async with self._db.conn.execute(
                 "SELECT * FROM agent_messages WHERE date(timestamp) = ? ORDER BY timestamp ASC",
-                (today,),
+                (date,),
             ) as cur:
                 rows = await cur.fetchall()
         return [dict(r) for r in rows]

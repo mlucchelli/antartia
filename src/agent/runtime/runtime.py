@@ -399,8 +399,8 @@ class Runtime:
     async def _tool_publish_reflection(self, payload: dict) -> str:
         from zoneinfo import ZoneInfo
         date = payload.get("date") or datetime.now(tz=ZoneInfo(self._config.agent.timezone)).strftime("%Y-%m-%d")
-        await TasksRepository(self._require_db()).insert("publish_reflection", {"date": date}, source="agent")
-        return f"reflection queued for publishing ({date}) — do not repeat"
+        await TasksRepository(self._require_db()).insert("create_reflection", {"date": date}, source="agent")
+        return f"reflection creation queued ({date}) — do not repeat"
 
     async def _tool_publish_agent_message(self, payload: dict) -> str:
         content = (payload.get("content") or "").strip()

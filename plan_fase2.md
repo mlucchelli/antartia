@@ -52,11 +52,16 @@ Phase 2 completes the **outbound publishing layer** (agent → Railway server). 
 | 30   | `publish_reflection` + `comment` + `publish_weather_snapshot` + reflection dedup on restart       | ✅ Done             |
 | 30.5 | Scoring: cetaceans in HIGH range + calibration examples (whale 0.85, orca 0.90)                  | ✅ Done             |
 | 30.6 | Network indicator `⬆ N` in status bar + `is_network` in activity_logs + SERVER_HOST env var      | ✅ Done             |
-| 31   | Route publishes: `publish_route_analysis` (nav snapshot) + `publish_route_snapshot` (GeoJSON track)| 🔜 Next            |
-| 32   | `agent_quote` auto-generation at scoring time (before upload so it travels with the image)        | 📋 Planned          |
-| 33   | `upload_image` real implementation: multipart POST + tags + GPS + quote in metadata               | 📋 Planned          |
-| 34   | `publish_daily_progress`: expedition_day (`start_date` added here), all-time stats, tokens       | 📋 Planned          |
-| 35   | Twitter/X integration                                                                              | 📋 Planned          |
+| 31   | Route publishes: `publish_route_analysis` + `publish_route_snapshot` (per-point via task queue)  | ✅ Done             |
+| 31.5 | sync_queue (100 retries) + auto-sync on fetch_weather + analyze_route queues publish tasks       | ✅ Done             |
+| 31.6 | ID-based sync: every task payload carries DB record ID to avoid get_latest() drift offline       | ✅ Done             |
+| 31.7 | `POST /api/location` per-point replacing deprecated `POST /api/track` (410)                      | ✅ Done             |
+| 31.8 | `publish_route_snapshot` sends single point; `process_location` queues task with `location_id`  | ✅ Done             |
+| 31.9 | Fix: all `_publish_*` log "queued for retry" vs "published" vs "error" distinctly               | ✅ Done             |
+| 31.10| Reflection: create+publish flow fixed; richer context (weather/date, messages); new prompt       | ✅ Done             |
+| 32   | `upload_image`: multipart POST + tags + GPS + quote; task queue + sync pattern                   | 🔜 Next             |
+| 33   | `agent_quote` auto-generation at scoring time                                                     | 📋 Planned          |
+| 34   | Twitter/X integration                                                                             | 📋 Planned          |
 
 ---
 

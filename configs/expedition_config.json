@@ -65,7 +65,7 @@
       },
       {
         "type": "publish_daily_progress",
-        "description": "Aggregate all-expedition running totals (distance, photos, wildlife, temperature extremes, token usage) and publish to the expedition website. Always reflects the full expedition so far — server overwrites previous snapshot.",
+        "description": "Aggregate all-expedition running totals (distance, photos, wildlife, temperature extremes, token usage) and publish to the expedition website. Always reflects the full expedition so far — server overwrites previous snapshot. Only call this when explicitly asked — it runs automatically as part of route analysis.",
         "parameters": {}
       },
       {
@@ -91,7 +91,7 @@
       },
       {
         "type": "publish_reflection",
-        "description": "Publish today's (or a specific date's) daily reflection to the expedition website. Defaults to today if no date given.",
+        "description": "Create and publish today's (or a specific date's) daily reflection. The service automatically gathers all needed data (logs, photos, weather, GPS, messages) — do NOT call any other data action before this. Call this action once and do not repeat.",
         "parameters": {
           "payload.date": "optional string — YYYY-MM-DD, defaults to today"
         }
