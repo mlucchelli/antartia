@@ -6,9 +6,16 @@ import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 
-import httpx
-
 from agent.config.loader import Config
+
+VALID_TAGS: frozenset[str] = frozenset({
+    "wildlife", "penguin", "seal", "cetacean", "orca", "seabird",
+    "albatross", "skua", "leopard-seal", "landscape", "iceberg",
+    "sea-ice", "glacier", "mountain", "beach", "underwater",
+    "weather", "storm", "fog", "aurora", "sunset", "sunrise",
+    "human", "ship", "zodiac", "equipment", "science", "landing",
+    "antartia", "base",
+})
 from agent.db.database import Database
 from agent.db.photos_repo import PhotosRepository
 from agent.db.tasks_repo import TasksRepository
@@ -23,7 +30,7 @@ class PhotoService:
     """
     Full photo pipeline:
       1. scan_inbox — discover new files in inbox, insert DB rows, create process_photo tasks
-      2. process_photo — preprocess → vision analysis → significance scoring → move original
+      2. process_photo — preprocess → vision+scoring (single call) → move original
     """
 
     def __init__(self, config: Config, db: Database, output: OutputHandler) -> None:
@@ -43,7 +50,7 @@ class PhotoService:
         tasks_repo = TasksRepository(self._db)
 
         image_files: list[Path] = []
-        for pattern in ("*.jpg", "*.jpeg", "*.JPG", "*.JPEG", "*.png", "*.PNG"):
+        for pattern in ("*.jpg", "*.jpeg", "*.JPG", "*.JPEG", "*.png", "*.PNG", "*.webp", "*.WEBP"):
             image_files.extend(self._inbox.glob(pattern))
 
         count = 0
@@ -53,6 +60,7 @@ class PhotoService:
                 continue
 
             self._output.on_task_progress(f"inbox: found new photo — {path.name}")
+            logger.info("Photo inbox: queued %s for processing", path.name)
             photo = await photos_repo.insert(
                 file_path=str(path),
                 file_name=path.name,
@@ -64,7 +72,7 @@ class PhotoService:
         return count
 
     async def process_photo(self, photo_id: int) -> None:
-        """Preprocess → vision → score → persist → move original."""
+        """Preprocess → vision+scoring (single call) → persist → move original."""
         from agent.db.token_usage_repo import TokenUsageRepository
         token_repo = TokenUsageRepository(self._db)
         photos_repo = PhotosRepository(self._db)
@@ -90,46 +98,46 @@ class PhotoService:
             vision_status="analyzing",
         )
 
-        # ── Step 2: vision analysis ───────────────────────────────────────────
+        # ── Step 2: vision + scoring (single model call) ──────────────────────
         self._output.on_vision_start(filename)
+        logger.info("Photo vision: analyzing %s", filename)
         vision_result = await self._vision.describe(preprocess.preview_path)
         self._output.on_task_progress(f"  ◈ {vision_result.summary}")
-        vision_tokens = vision_result.usage.get("prompt_tokens", 0) + vision_result.usage.get("completion_tokens", 0)
+        logger.info(
+            "Photo vision: done %s — score=%.2f tags=%s quote=%s",
+            filename, vision_result.significance_score, vision_result.tags,
+            f'"{vision_result.agent_quote[:60]}"' if vision_result.agent_quote else "none",
+        )
+
+        total_tokens = (
+            vision_result.usage.get("prompt_tokens", 0)
+            + vision_result.usage.get("completion_tokens", 0)
+        )
         await token_repo.insert(
             model=self._config.agent.vision_model,
             call_type="vision",
             prompt_tokens=vision_result.usage.get("prompt_tokens", 0),
             completion_tokens=vision_result.usage.get("completion_tokens", 0),
         )
-        if vision_tokens:
-            self._output.on_tokens_used(vision_tokens)
+        if total_tokens:
+            self._output.on_tokens_used(total_tokens)
 
-        # ── Step 3: significance scoring ──────────────────────────────────────
-        self._output.on_task_progress(f"scoring: {filename}")
-        score, agent_quote, scoring_usage = await self._score_significance(vision_result.description)
-        scoring_tokens = scoring_usage.get("prompt_tokens", 0) + scoring_usage.get("completion_tokens", 0)
-        await token_repo.insert(
-            model=self._config.agent.vision_model,
-            call_type="scoring",
-            prompt_tokens=scoring_usage.get("prompt_tokens", 0),
-            completion_tokens=scoring_usage.get("completion_tokens", 0),
-        )
-        if scoring_tokens:
-            self._output.on_tokens_used(scoring_tokens)
+        score = vision_result.significance_score
+        tags = [t for t in vision_result.tags if t in VALID_TAGS]
         is_candidate = score >= self._threshold
         self._output.on_task_progress(
             f"  score={score:.2f} — "
             f"{'✓ remote candidate' if is_candidate else '✗ below threshold'}"
         )
 
-        # ── Step 4: move original to processed/ ───────────────────────────────
+        # ── Step 3: move original to processed/ ───────────────────────────────
         moved_path = self._processed_dir / filename
         if source_path.exists():
             shutil.move(str(source_path), str(moved_path))
             self._output.on_task_progress(f"  moved: {filename} → processed/")
+            logger.info("Photo moved: %s → processed/", filename)
 
-        # ── Step 5: update DB ─────────────────────────────────────────────────
-        # Capture latest GPS position at processing time
+        # ── Step 4: update DB ─────────────────────────────────────────────────
         from agent.db.locations_repo import LocationsRepository
         latest_locs = await LocationsRepository(self._db).get_latest(limit=1)
         lat = latest_locs[0]["latitude"] if latest_locs else None
@@ -142,50 +150,11 @@ class PhotoService:
             vision_model=self._config.agent.vision_model,
             significance_score=score,
             is_remote_candidate=1 if is_candidate else 0,
-            agent_quote=agent_quote,
+            agent_quote=vision_result.agent_quote,
+            tags=json.dumps(tags) if tags else None,
             processed=1,
             processed_at=datetime.now(timezone.utc).isoformat(),
             moved_to_path=str(moved_path),
             latitude=lat,
             longitude=lon,
         )
-
-    async def _score_significance(self, description: str) -> tuple[float, str | None, dict]:
-        """Score description significance via Ollama.
-        Returns (score 0.0–1.0, agent_quote or None, usage dict).
-        """
-        prompt = self._config.photo_pipeline.scoring_prompt + description
-
-        body = {
-            "model": self._config.agent.vision_model,
-            "prompt": prompt,
-            "stream": False,
-            "format": "json",
-            "keep_alive": -1,
-        }
-
-        try:
-            async with httpx.AsyncClient() as client:
-                resp = await client.post(
-                    f"{self._config.photo_pipeline.ollama_url}/api/generate",
-                    json=body,
-                    timeout=httpx.Timeout(connect=30.0, read=None, write=30.0, pool=30.0),
-                )
-                resp.raise_for_status()
-
-            resp_json = resp.json()
-            usage = {
-                "prompt_tokens": resp_json.get("prompt_eval_count", 0),
-                "completion_tokens": resp_json.get("eval_count", 0),
-            }
-            raw = resp_json.get("response", "").strip()
-            data = json.loads(raw)
-            score = float(data.get("significance_score", 0.5))
-            quote = data.get("agent_quote") or None
-            if isinstance(quote, str):
-                quote = quote.strip() or None
-            return max(0.0, min(1.0, score)), quote, usage
-
-        except Exception as exc:
-            logger.warning("Significance scoring failed (%s) — defaulting to 0.5", exc)
-            return 0.5, None, {}

@@ -59,8 +59,9 @@ Phase 2 completes the **outbound publishing layer** (agent → Railway server). 
 | 31.8 | `publish_route_snapshot` sends single point; `process_location` queues task with `location_id`  | ✅ Done             |
 | 31.9 | Fix: all `_publish_*` log "queued for retry" vs "published" vs "error" distinctly               | ✅ Done             |
 | 31.10| Reflection: create+publish flow fixed; richer context (weather/date, messages); new prompt       | ✅ Done             |
-| 32   | `upload_image`: multipart POST + tags + GPS + quote; task queue + sync pattern                   | 🔜 Next             |
-| 33   | `agent_quote` auto-generation at scoring time                                                     | 📋 Planned          |
+| 32.1 | `agent_quote` generated at scoring time — single JSON invocation returns score + quote           | ✅ Done             |
+| 32.2 | Vision+scoring merged into single model call; model→`qwen2.5vl:3b`; `think:False`; prompts compacted | ✅ Done         |
+| 32.3 | `upload_image`: auto-queue at scoring if candidate; multipart POST via task queue + sync pattern  | 🔜 Next             |
 | 34   | Twitter/X integration                                                                             | 📋 Planned          |
 
 ---
