@@ -48,9 +48,11 @@ Phase 2 completes the **outbound publishing layer** (agent → Railway server). 
 | 27.5 | Semaphore fix: remove `_poll_typing` + task spinner during background tasks                       | ✅ Done             |
 | 27.6 | Prompt improvements (personality, vision, scoring, system_prompt, actions) + eval framework      | ✅ Done             |
 | 28   | Photo model: latitude + longitude at process time + `tags` column + `get_wildlife_count`          | ✅ Done             |
-| 29   | RemoteSyncService + config (`base_url_env` lazy fix) + `get_all_time_temps` DB helper             | 🔜 Next             |
-| 30   | Simple JSON publishes: `publish_reflection` + `publish_agent_message` + `publish_weather_snapshot`| 📋 Planned          |
-| 31   | Route publishes: `publish_route_analysis` (nav snapshot) + `publish_route_snapshot` (GeoJSON track)| 📋 Planned         |
+| 29   | RemoteSyncService + config (`base_url_env` lazy fix) + `get_all_time_temps` DB helper             | ✅ Done             |
+| 30   | `publish_reflection` + `comment` + `publish_weather_snapshot` + reflection dedup on restart       | ✅ Done             |
+| 30.5 | Scoring: cetaceans in HIGH range + calibration examples (whale 0.85, orca 0.90)                  | ✅ Done             |
+| 30.6 | Network indicator `⬆ N` in status bar + `is_network` in activity_logs + SERVER_HOST env var      | ✅ Done             |
+| 31   | Route publishes: `publish_route_analysis` (nav snapshot) + `publish_route_snapshot` (GeoJSON track)| 🔜 Next            |
 | 32   | `agent_quote` auto-generation at scoring time (before upload so it travels with the image)        | 📋 Planned          |
 | 33   | `upload_image` real implementation: multipart POST + tags + GPS + quote in metadata               | 📋 Planned          |
 | 34   | `publish_daily_progress`: expedition_day (`start_date` added here), all-time stats, tokens       | 📋 Planned          |
