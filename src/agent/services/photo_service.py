@@ -105,7 +105,6 @@ class PhotoService:
         self._output.on_vision_start(filename)
         logger.info("Photo vision: analyzing %s", filename)
         vision_result = await self._vision.describe(preprocess.preview_path)
-        self._output.on_task_progress(f"  ◈ {vision_result.summary}")
         logger.info(
             "Photo vision: done %s — score=%.2f tags=%s quote=%s",
             filename, vision_result.significance_score, vision_result.tags,
@@ -128,9 +127,31 @@ class PhotoService:
         score = vision_result.significance_score
         tags = [t for t in vision_result.tags if t in VALID_TAGS]
         is_candidate = score >= self._threshold
+
+        # ── Vision result display block ───────────────────────────────────────
+        score_bar = "█" * int(score * 10) + "░" * (10 - int(score * 10))
+        candidate_label = "✓ candidate" if is_candidate else "✗ below threshold"
+        self._output.on_task_progress(f"  ┌─ {filename}")
+        # wrap description at ~90 chars
+        desc = vision_result.description or vision_result.summary
+        words = desc.split()
+        line, lines = [], []
+        for w in words:
+            line.append(w)
+            if len(" ".join(line)) >= 88:
+                lines.append(" ".join(line))
+                line = []
+        if line:
+            lines.append(" ".join(line))
+        for i, l in enumerate(lines):
+            prefix = "  │  " if i < len(lines) - 1 else "  │  "
+            self._output.on_task_progress(f"{prefix}{l}")
+        if tags:
+            self._output.on_task_progress(f"  │  tags: {', '.join(tags)}")
+        if vision_result.agent_quote:
+            self._output.on_task_progress(f"  │  quote: \"{vision_result.agent_quote}\"")
         self._output.on_task_progress(
-            f"  score={score:.2f} — "
-            f"{'✓ remote candidate' if is_candidate else '✗ below threshold'}"
+            f"  └─ score: {score:.2f} [{score_bar}] {candidate_label}"
         )
 
         # ── Step 3: move original to processed/ ───────────────────────────────
