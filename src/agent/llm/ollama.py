@@ -48,7 +48,6 @@ class OllamaClient:
             "stream": False,
             "format": schema if schema else "json",
             "options": {"temperature": self._temperature},
-            "keep_alive": -1,
         }
 
         async with httpx.AsyncClient() as client:

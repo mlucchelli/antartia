@@ -82,8 +82,9 @@ class RemoteSyncService:
                     data=data,
                 )
                 r.raise_for_status()
-            logger.info("sync OK  /api/photos (%s)", file_name)
-            return {"ok": True}
+            file_url = r.json().get("file_url")
+            logger.info("sync OK  /api/photos (%s) → %s", file_name, file_url)
+            return {"ok": True, "file_url": file_url}
         except Exception as exc:
             error = str(exc)
             logger.warning("sync FAIL /api/photos (%s) — %s", file_name, error)

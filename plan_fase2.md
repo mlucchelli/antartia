@@ -61,8 +61,9 @@ Phase 2 completes the **outbound publishing layer** (agent → Railway server). 
 | 31.10| Reflection: create+publish flow fixed; richer context (weather/date, messages); new prompt       | ✅ Done             |
 | 32.1 | `agent_quote` generated at scoring time — single JSON invocation returns score + quote           | ✅ Done             |
 | 32.2 | Vision+scoring merged into single model call; model→`qwen2.5vl:3b`; `think:False`; prompts compacted | ✅ Done         |
-| 32.3 | `upload_image`: auto-queue at scoring if candidate; multipart POST via task queue + sync pattern  | 🔜 Next             |
-| 34   | Twitter/X integration                                                                             | 📋 Planned          |
+| 32.3 | `sync_queue` photo support: `type` + `file_path` columns; `enqueue_photo()`; `retry_pending()` handles multipart | 🔜 Next |
+| 32.4 | `upload_image`: auto-queue at scoring if candidate; `task_runner` does multipart POST via `push_photo()` | 📋 Planned  |
+| 33   | Twitter/X integration                                                                             | 📋 Planned          |
 
 ---
 
@@ -659,6 +660,202 @@ curl -s https://your-server.railway.app/api/progress | jq '{expedition_day, dist
 
 # Verify token count matches DB:
 sqlite3 data/expedition.db "SELECT SUM(prompt_tokens+completion_tokens) FROM token_usage;"
+```
+
+---
+
+## Commit 32.3 — `sync_queue` photo support
+
+### Design
+
+Extend `sync_queue` to handle binary multipart uploads (photos) with the same retry semantics as JSON pushes. Photos can't be serialized to JSON, so the queue stores the file path + metadata JSON instead. `retry_pending()` dispatches `push_photo()` vs `push()` based on the `type` column.
+
+### Changed files
+
+#### `src/agent/db/database.py`
+
+Add migration for two new columns on `sync_queue`:
+```python
+for col in ("type TEXT NOT NULL DEFAULT 'json'", "file_path TEXT"):
+    try:
+        await self._conn.execute(f"ALTER TABLE sync_queue ADD COLUMN {col}")
+    except Exception:
+        pass
+```
+
+#### `src/agent/db/sync_queue_repo.py`
+
+Add `enqueue_photo()`:
+```python
+async def enqueue_photo(self, file_path: str, metadata_json: str, max_attempts: int = 100) -> int:
+    created_at = datetime.now(timezone.utc).isoformat()
+    async with self._db.conn.execute(
+        """INSERT INTO sync_queue (path, payload_json, file_path, type, max_attempts, created_at)
+           VALUES (?, ?, ?, 'photo', ?, ?)""",
+        ("/api/photos", metadata_json, file_path, max_attempts, created_at),
+    ) as cur:
+        return cur.lastrowid
+```
+
+#### `src/agent/services/remote_sync_service.py`
+
+Add `_enqueue_photo()` and update `push_photo()` to enqueue on failure + update `retry_pending()` to handle `type='photo'`:
+
+```python
+async def push_photo(self, file_path: str, file_name: str, metadata: dict) -> dict:
+    self._notify_start()
+    try:
+        with open(file_path, "rb") as f:
+            file_bytes = f.read()
+        files = {"file": (file_name, file_bytes, "image/jpeg")}
+        data  = {"metadata": json.dumps(metadata, ensure_ascii=False)}
+        async with httpx.AsyncClient(timeout=60) as client:
+            r = await client.post(
+                f"{self._base_url}/api/photos",
+                headers=self._headers(),
+                files=files,
+                data=data,
+            )
+            r.raise_for_status()
+        logger.info("sync OK  /api/photos (%s)", file_name)
+        return {"ok": True}
+    except Exception as exc:
+        error = str(exc)
+        logger.warning("sync FAIL /api/photos (%s) — %s", file_name, error)
+        if self._db:
+            await self._enqueue_photo(file_path, file_name, metadata, error)
+            return {"ok": True, "queued": True}
+        return {"ok": False, "error": error}
+    finally:
+        self._notify_end()
+
+async def _enqueue_photo(self, file_path: str, file_name: str, metadata: dict, error: str) -> None:
+    from agent.db.sync_queue_repo import SyncQueueRepository
+    repo = SyncQueueRepository(self._db)
+    item_id = await repo.enqueue_photo(file_path, json.dumps({"file_name": file_name, **metadata}))
+    await repo.record_attempt(item_id, error)
+    pending = await repo.count_pending()
+    logger.warning("sync queued photo %s (id=%s) — %d item(s) pending retry", file_name, item_id, pending)
+```
+
+In `retry_pending()`, add branch for `type='photo'`:
+```python
+if item.get("type") == "photo":
+    meta = json.loads(item["payload_json"])
+    file_name = meta.pop("file_name")
+    with open(item["file_path"], "rb") as f:
+        file_bytes = f.read()
+    files = {"file": (file_name, file_bytes, "image/jpeg")}
+    data = {"metadata": json.dumps(meta, ensure_ascii=False)}
+    async with httpx.AsyncClient(timeout=60) as client:
+        r = await client.post(f"{self._base_url}/api/photos", headers=self._headers(), files=files, data=data)
+        r.raise_for_status()
+else:
+    # existing JSON push path
+    payload = json.loads(item["payload_json"])
+    async with httpx.AsyncClient(timeout=30) as client:
+        r = await client.post(f"{self._base_url}{path}", json=payload, headers=headers)
+        r.raise_for_status()
+```
+
+### Test
+
+```bash
+# Kill network, drop photo in inbox, let it process → should enqueue in sync_queue with type='photo'
+sqlite3 data/antartia.db "SELECT id, type, file_path, attempts FROM sync_queue ORDER BY id DESC LIMIT 3;"
+
+# Restore network → next scheduler tick retries → photo uploaded
+```
+
+---
+
+## Commit 32.4 — `upload_image`: auto-queue at scoring + task runner implementation
+
+### Design
+
+Two parts:
+1. `photo_service.py`: after `process_photo()` saves to DB, if `is_candidate=True` → auto-insert `upload_image` task
+2. `task_runner._upload_image()`: implement real multipart POST via `RemoteSyncService.push_photo()`
+
+The agent's manual `_tool_upload_image()` in `runtime.py` stays as-is (queues a task) — this is the same pattern used by `comment`, `publish_reflection`, etc.
+
+### Changed files
+
+#### `src/agent/services/photo_service.py`
+
+After the final `photos_repo.update()` call in `process_photo()`:
+```python
+if is_candidate:
+    tasks_repo = TasksRepository(self._db)
+    await tasks_repo.insert("upload_image", {"photo_id": photo_id})
+    logger.info("Photo upload queued: photo_id=%d", photo_id)
+```
+
+#### `src/agent/runtime/task_runner.py`
+
+Replace stub with real implementation:
+```python
+async def _upload_image(self, payload: dict) -> None:
+    from agent.db.photos_repo import PhotosRepository
+    from agent.services.remote_sync_service import RemoteSyncService
+    import json as _json
+
+    photo_id = payload.get("photo_id")
+    if not photo_id:
+        self._progress("upload_image: missing photo_id")
+        return
+
+    repo = PhotosRepository(self._db)
+    photo = await repo.get_by_id(int(photo_id))
+    if not photo:
+        self._progress(f"upload_image: photo {photo_id} not found")
+        return
+    if not photo.get("is_remote_candidate"):
+        self._progress(f"upload_image: photo {photo_id} not a candidate — skipped")
+        return
+
+    file_path = photo.get("vision_preview_path") or photo.get("moved_to_path")
+    if not file_path or not Path(file_path).exists():
+        self._progress(f"upload_image: file not found — {file_path}")
+        return
+
+    metadata = {
+        "file_name":          photo["file_name"],
+        "recorded_at":        photo.get("processed_at") or photo["discovered_at"],
+        "latitude":           photo.get("latitude"),
+        "longitude":          photo.get("longitude"),
+        "significance_score": photo.get("significance_score"),
+        "vision_description": photo.get("vision_description"),
+        "agent_quote":        photo.get("agent_quote"),
+        "tags":               _json.loads(photo["tags"]) if photo.get("tags") else [],
+        "width":              photo.get("vision_input_width"),
+        "height":             photo.get("vision_input_height"),
+    }
+
+    result = await RemoteSyncService(self._config, self._output, self._db).push_photo(
+        file_path=file_path,
+        file_name=photo["file_name"],
+        metadata=metadata,
+    )
+
+    if result.get("queued"):
+        self._progress(f"upload_image: photo {photo_id} queued for retry")
+    elif result["ok"]:
+        await repo.update(int(photo_id), remote_uploaded=1, remote_uploaded_at=datetime.now(timezone.utc).isoformat())
+        self._progress(f"upload_image: photo {photo_id} uploaded ({photo['file_name']})")
+    else:
+        self._progress(f"upload_image: error — {result['error']}")
+```
+
+### Test
+
+```bash
+# Drop photo in inbox, let process_photo run
+# Expect: upload_image task auto-created
+sqlite3 data/antartia.db "SELECT id, type, payload FROM tasks WHERE type='upload_image' ORDER BY id DESC LIMIT 3;"
+
+# Let upload_image task run
+sqlite3 data/antartia.db "SELECT id, file_name, remote_uploaded, remote_uploaded_at FROM photos ORDER BY id DESC LIMIT 3;"
 ```
 
 ---

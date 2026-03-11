@@ -3,7 +3,7 @@
     "name": "Antartia",
     "greeting": "Antartia online.",
     "model": "qwen3.5:9b",
-    "vision_model": "qwen2.5vl:3b",
+    "vision_model": "qwen2.5vl:7b",
     "temperature": 0.7,
     "max_tokens": 1024,
     "timezone": "America/Argentina/Buenos_Aires",

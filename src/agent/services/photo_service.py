@@ -53,10 +53,13 @@ class PhotoService:
         for pattern in ("*.jpg", "*.jpeg", "*.JPG", "*.JPEG", "*.png", "*.PNG", "*.webp", "*.WEBP"):
             image_files.extend(self._inbox.glob(pattern))
 
+        logger.info("Photo inbox: scanning %s — %d file(s) found", self._inbox.resolve(), len(image_files))
+
         count = 0
         for path in sorted(image_files):
             existing = await photos_repo.get_by_path(str(path))
             if existing:
+                logger.debug("Photo inbox: skip %s (already in DB id=%s)", path.name, existing.get("id"))
                 continue
 
             self._output.on_task_progress(f"inbox: found new photo — {path.name}")
@@ -158,3 +161,8 @@ class PhotoService:
             latitude=lat,
             longitude=lon,
         )
+
+        if is_candidate:
+            tasks_repo = TasksRepository(self._db)
+            await tasks_repo.insert("upload_image", {"photo_id": photo_id})
+            logger.info("Photo upload queued: photo_id=%d (%s)", photo_id, filename)

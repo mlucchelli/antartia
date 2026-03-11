@@ -162,7 +162,6 @@ class ReflectionService:
             "messages": [{"role": "user", "content": prompt}],
             "stream":  False,
             "options": {"temperature": 0.8},
-            "keep_alive": -1,
         }
         async with httpx.AsyncClient() as client:
             resp = await client.post(

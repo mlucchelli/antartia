@@ -250,8 +250,64 @@ class TaskRunner:
             self._progress(f"publish_location error: {result['error']}")
 
     async def _upload_image(self, payload: dict) -> None:
-        photo_id = payload.get("photo_id", "?")
-        self._progress(f"upload_image: photo_id={photo_id} — not yet implemented")
+        import json as _json
+        from pathlib import Path
+        from agent.db.photos_repo import PhotosRepository
+        from agent.services.remote_sync_service import RemoteSyncService
+
+        photo_id = payload.get("photo_id")
+        if not photo_id:
+            self._progress("upload_image: missing photo_id")
+            return
+
+        repo  = PhotosRepository(self._db)
+        photo = await repo.get_by_id(int(photo_id))
+        if not photo:
+            self._progress(f"upload_image: photo {photo_id} not found")
+            return
+        if not photo.get("is_remote_candidate"):
+            self._progress(f"upload_image: photo {photo_id} not a candidate — skipped")
+            return
+
+        file_path = photo.get("vision_preview_path") or photo.get("moved_to_path")
+        if not file_path or not Path(file_path).exists():
+            self._progress(f"upload_image: file not found — {file_path}")
+            return
+
+        description = photo.get("vision_description") or ""
+        metadata = {
+            "file_name":          photo["file_name"],
+            "recorded_at":        photo.get("processed_at") or photo.get("discovered_at"),
+            "latitude":           photo.get("latitude"),
+            "longitude":          photo.get("longitude"),
+            "significance_score": photo.get("significance_score"),
+            "vision_description": description,
+            "vision_summary":     (description[:100] + "…") if len(description) > 100 else description or None,
+            "agent_quote":        photo.get("agent_quote"),
+            "tags":               _json.loads(photo["tags"]) if photo.get("tags") else [],
+            "width":              photo.get("vision_input_width"),
+            "height":             photo.get("vision_input_height"),
+        }
+
+        result = await RemoteSyncService(self._config, self._output, self._db).push_photo(
+            file_path=file_path,
+            file_name=photo["file_name"],
+            metadata=metadata,
+        )
+
+        if result.get("queued"):
+            self._progress(f"upload_image: photo {photo_id} queued for retry")
+        elif result["ok"]:
+            update_fields: dict = {
+                "remote_uploaded":    1,
+                "remote_uploaded_at": datetime.now(timezone.utc).isoformat(),
+            }
+            if result.get("file_url"):
+                update_fields["remote_url"] = result["file_url"]
+            await repo.update(int(photo_id), **update_fields)
+            self._progress(f"upload_image: photo {photo_id} uploaded ({photo['file_name']})")
+        else:
+            self._progress(f"upload_image: error — {result['error']}")
 
     async def _publish_reflection(self, payload: dict) -> None:
         from zoneinfo import ZoneInfo
