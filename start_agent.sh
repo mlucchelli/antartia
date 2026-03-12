@@ -18,11 +18,35 @@ KNOWLEDGE_PROCESSED_DIR="${KNOWLEDGE_PROCESSED_DIR:-./data/knowledge/processed}"
 
 CONFIG="${1:-configs/expedition_config.json}"
 
-# ── Check Ollama is running ────────────────────────────────────────────────────
-echo "Checking Ollama..."
-if ! curl -sf "$OLLAMA_URL/api/tags" > /dev/null; then
-    echo "Error: Ollama is not running at $OLLAMA_URL"
-    echo "Start it with: ollama serve"
+# ── Configure Ollama memory settings and restart ───────────────────────────────
+echo "Configuring Ollama memory settings..."
+export OLLAMA_FLASH_ATTENTION=1
+export OLLAMA_KV_CACHE_TYPE=q8_0
+export OLLAMA_NUM_PARALLEL=1
+export OLLAMA_MAX_LOADED_MODELS=3
+# Also set for launchd-managed Ollama instances
+launchctl setenv OLLAMA_FLASH_ATTENTION 1
+launchctl setenv OLLAMA_KV_CACHE_TYPE q8_0
+launchctl setenv OLLAMA_NUM_PARALLEL 1
+launchctl setenv OLLAMA_MAX_LOADED_MODELS 3
+
+# Kill and restart Ollama so it picks up the new env vars
+echo "Restarting Ollama with new settings..."
+launchctl stop com.ollama.ollama 2>/dev/null || true
+pkill -x ollama 2>/dev/null || true
+sleep 3
+
+ollama serve > /dev/null 2>&1 &
+echo "Ollama started (pid=$!) — waiting for it to be ready..."
+for i in $(seq 1 20); do
+    if curl -sf "$OLLAMA_URL/api/tags" > /dev/null 2>&1; then
+        echo "Ollama ready."
+        break
+    fi
+    sleep 1
+done
+if ! curl -sf "$OLLAMA_URL/api/tags" > /dev/null 2>&1; then
+    echo "Error: Ollama did not start in time at $OLLAMA_URL"
     exit 1
 fi
 

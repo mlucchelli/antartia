@@ -65,7 +65,17 @@ Phase 2 completes the **outbound publishing layer** (agent → Railway server). 
 | 32.4 | `upload_image`: auto-queue at scoring if candidate; `task_runner` does multipart POST via `push_photo()` | ✅ Done  |
 | 32.5 | Rich vision result display block in photo pipeline                                                | ✅ Done             |
 | 32.6 | fix(tz): Argentina timezone everywhere — UTC range queries, `utils/tz.py`, `file_name` field fix | ✅ Done             |
-| 33   | Twitter/X integration                                                                             | 📋 Planned          |
+| 33.1 | process_photo/scan_photo_inbox skip policy removed — scheduler now runs them automatically       | ✅ Done             |
+| 33.2 | Per-photo try/except in scan_photo_inbox — Ollama crash no longer aborts full batch              | ✅ Done             |
+| 33.3 | publish_daily_progress auto-triggered after upload, reflection, and sync_retry                   | ✅ Done             |
+| 33.4 | photos_uploaded_total added to /api/progress payload; is_remote_uploaded filter in photos_repo  | ✅ Done             |
+| 33.5 | GPS position injected into system prompt on every LLM call — no tool call needed                | ✅ Done             |
+| 33.6 | get_weather auto-uses latest GPS when no coords passed (runtime + task_runner)                   | ✅ Done             |
+| 33.7 | max_chain_depth 6→15; sequential tool chaining rule; stop-when-done rule in system prompt       | ✅ Done             |
+| 33.8 | comment action: posts to X/Twitter; witness voice documented; BAD/GOOD examples in action desc  | ✅ Done             |
+| 33.9 | fix(vision): remove think:False param (unsupported by qwen2.5vl); keep_alive:5m after use       | ✅ Done             |
+| 33.10| start_agent.sh: Ollama memory settings (FLASH_ATTENTION, KV_CACHE, NUM_PARALLEL, MAX_LOADED)    | ✅ Done             |
+| 34   | Twitter/X integration                                                                             | 📋 Planned          |
 
 ---
 
