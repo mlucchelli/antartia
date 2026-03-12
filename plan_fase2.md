@@ -61,8 +61,10 @@ Phase 2 completes the **outbound publishing layer** (agent → Railway server). 
 | 31.10| Reflection: create+publish flow fixed; richer context (weather/date, messages); new prompt       | ✅ Done             |
 | 32.1 | `agent_quote` generated at scoring time — single JSON invocation returns score + quote           | ✅ Done             |
 | 32.2 | Vision+scoring merged into single model call; model→`qwen2.5vl:3b`; `think:False`; prompts compacted | ✅ Done         |
-| 32.3 | `sync_queue` photo support: `type` + `file_path` columns; `enqueue_photo()`; `retry_pending()` handles multipart | 🔜 Next |
-| 32.4 | `upload_image`: auto-queue at scoring if candidate; `task_runner` does multipart POST via `push_photo()` | 📋 Planned  |
+| 32.3 | `sync_queue` photo support: `type` + `file_path` columns; `enqueue_photo()`; `retry_pending()` handles multipart | ✅ Done |
+| 32.4 | `upload_image`: auto-queue at scoring if candidate; `task_runner` does multipart POST via `push_photo()` | ✅ Done  |
+| 32.5 | Rich vision result display block in photo pipeline                                                | ✅ Done             |
+| 32.6 | fix(tz): Argentina timezone everywhere — UTC range queries, `utils/tz.py`, `file_name` field fix | ✅ Done             |
 | 33   | Twitter/X integration                                                                             | 📋 Planned          |
 
 ---

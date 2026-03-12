@@ -244,12 +244,6 @@ class CLI:
         self._render_status_bar()
 
     def display(self, content: str) -> None:
-        if self._debug and self._last_state:
-            raw = json.dumps(self._last_state, indent=2, default=str)
-            self._console.print(Panel(
-                raw, title="DEBUG state", border_style="cyan", style="dim",
-            ))
-
         name = self._config.agent.name
         self._print_to_scroll(f"[bold blue]{name}:[/bold blue] {escape(content)}")
 
