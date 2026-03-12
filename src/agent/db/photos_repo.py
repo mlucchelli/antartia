@@ -39,6 +39,7 @@ class PhotosRepository:
         self,
         vision_status: str | None = None,
         is_remote_candidate: bool | None = None,
+        is_remote_uploaded: bool | None = None,
         date: str | None = None,
     ) -> list[dict]:
         conditions: list[str] = []
@@ -49,6 +50,9 @@ class PhotosRepository:
         if is_remote_candidate is not None:
             conditions.append("is_remote_candidate = ?")
             params.append(1 if is_remote_candidate else 0)
+        if is_remote_uploaded is not None:
+            conditions.append("remote_uploaded = ?")
+            params.append(1 if is_remote_uploaded else 0)
         if date is not None:
             start, end = day_utc_bounds(date)
             conditions.append("discovered_at >= ? AND discovered_at < ?")

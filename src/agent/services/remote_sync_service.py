@@ -149,6 +149,9 @@ class RemoteSyncService:
                         r.raise_for_status()
                 await repo.mark_sent(item["id"])
                 logger.info("sync retry OK  %s (attempt %d)", path, attempt)
+                if item.get("type") == "photo" and self._db:
+                    from agent.db.tasks_repo import TasksRepository
+                    await TasksRepository(self._db).insert("publish_daily_progress", {}, source="sync_retry")
             except httpx.HTTPStatusError as exc:
                 error = str(exc)
                 body = exc.response.text[:500] if exc.response.text else "(empty)"

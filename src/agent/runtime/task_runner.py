@@ -38,11 +38,10 @@ class TaskRunner:
             match task_type:
                 case "process_location":
                     await self._process_location(payload)
-                case "scan_photo_inbox" | "process_photo":
-                    logger.info("Task %s skipped — photo tasks run on agent request only", task_type)
-                    await repo.complete(task_id)
-                    self._task_complete(task_type, source, success=True)
-                    return
+                case "scan_photo_inbox":
+                    await self._scan_photo_inbox(payload)
+                case "process_photo":
+                    await self._process_photo(payload)
                 case "fetch_weather":
                     await self._fetch_weather(payload)
                 case "publish_daily_progress":
@@ -157,8 +156,9 @@ class TaskRunner:
             )
             for i in range(1, len(all_locs))
         )
-        photos_total   = len(await PhotosRepository(self._db).get_all(vision_status="done"))
-        wildlife_total = await PhotosRepository(self._db).get_wildlife_count()
+        photos_total          = len(await PhotosRepository(self._db).get_all(vision_status="done"))
+        photos_uploaded_total = len(await PhotosRepository(self._db).get_all(vision_status="done", is_remote_uploaded=True))
+        wildlife_total        = await PhotosRepository(self._db).get_wildlife_count()
         temps          = await WeatherRepository(self._db).get_all_time_temps()
         latest         = await LocationsRepository(self._db).get_latest(limit=1)
         position       = {"latitude": latest[0]["latitude"], "longitude": latest[0]["longitude"]} if latest else None
@@ -168,6 +168,7 @@ class TaskRunner:
             "expedition_day":           exp_day,
             "distance_km_total":        round(total_km, 2),
             "photos_captured_total":    photos_total,
+            "photos_uploaded_total":    photos_uploaded_total,
             "wildlife_spotted_total":   wildlife_total,
             "temperature_min_all_time": temps["min"],
             "temperature_max_all_time": temps["max"],
@@ -306,6 +307,7 @@ class TaskRunner:
                 update_fields["remote_url"] = result["file_url"]
             await repo.update(int(photo_id), **update_fields)
             self._progress(f"upload_image: photo {photo_id} uploaded ({photo['file_name']})")
+            await TasksRepository(self._db).insert("publish_daily_progress", {}, source="upload_image")
         else:
             self._progress(f"upload_image: error — {result['error']}")
 
@@ -333,6 +335,7 @@ class TaskRunner:
             self._progress(f"reflection queued for retry ({date})")
         elif result["ok"]:
             self._progress(f"reflection published for {date}")
+            await TasksRepository(self._db).insert("publish_daily_progress", {}, source="reflection")
         else:
             self._progress(f"publish_reflection error: {result['error']}")
 

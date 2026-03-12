@@ -348,16 +348,24 @@ class Runtime:
         to_process = await PhotosRepository(db).get_all(vision_status="pending")
         stuck = await PhotosRepository(db).get_all(vision_status="analyzing")
         to_process = to_process + stuck
+        failed = 0
         for photo in to_process:
-            await svc.process_photo(photo["id"])
+            try:
+                await svc.process_photo(photo["id"])
+            except Exception as exc:
+                failed += 1
+                logger.warning("process_photo id=%s failed: %s", photo["id"], exc)
 
         total = len(to_process)
         if new_count == 0 and total == 0:
             return "inbox is empty — no new or pending photos found"
         recovered = len(stuck)
-        return f"scanned inbox: {new_count} new, {total} processed" + (
-            f" ({recovered} recovered from stuck state)" if recovered else ""
-        )
+        result = f"scanned inbox: {new_count} new, {total} processed"
+        if recovered:
+            result += f" ({recovered} recovered from stuck state)"
+        if failed:
+            result += f" ({failed} failed — see logs)"
+        return result
 
     async def _tool_publish_daily_progress(self, payload: dict) -> str:
         await TasksRepository(self._require_db()).insert("publish_daily_progress", {}, source="agent")
