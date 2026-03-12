@@ -320,6 +320,11 @@ class Runtime:
         lat = payload.get("latitude")
         lon = payload.get("longitude")
         db = self._require_db()
+        if lat is None or lon is None:
+            rows = await LocationsRepository(db).get_latest(limit=1)
+            if rows:
+                lat = rows[0]["latitude"]
+                lon = rows[0]["longitude"]
         snapshot = await WeatherService(self._config, db).fetch_and_store(lat, lon)
         await TasksRepository(db).insert("publish_weather_snapshot", {"id": snapshot["id"]}, source="agent")
         result = dict(snapshot)

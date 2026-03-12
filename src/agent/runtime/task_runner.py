@@ -123,6 +123,11 @@ class TaskRunner:
         from agent.services.weather_service import WeatherService
         lat = payload.get("latitude")
         lon = payload.get("longitude")
+        if lat is None or lon is None:
+            rows = await LocationsRepository(self._db).get_latest(limit=1)
+            if rows:
+                lat = rows[0]["latitude"]
+                lon = rows[0]["longitude"]
         svc = WeatherService(self._config, self._db)
         s = await svc.fetch_and_store(lat, lon)
         self._progress(
