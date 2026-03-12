@@ -62,7 +62,7 @@ class OllamaVisionClient:
             "images": [image_b64],
             "stream": False,
             "format": "json",
-            "think": False,
+            "keep_alive": "5m",
         }
 
         async with httpx.AsyncClient() as client:
