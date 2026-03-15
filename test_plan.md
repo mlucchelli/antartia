@@ -205,7 +205,7 @@ python3 -m agent --config configs/expedition_config.json --debug
 # Expected:
 #   executing: get_latest_locations
 #   [tool result appended to context]
-#   Antartia: <reply based on location data>
+#   AItartica: <reply based on location data>
 
 # 4. Task progress visible in scroll area
 # While agent is running, inject a task and watch scheduler pick it up:

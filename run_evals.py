@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Antartia eval runner — LLM-as-judge evaluation against the golden dataset.
+AItartica eval runner — LLM-as-judge evaluation against the golden dataset.
 
 Agent:  Ollama (production model, local)
 Judge:  OpenRouter / GPT-4o-mini (requires OPENROUTER_API_KEY in .env)
@@ -68,7 +68,7 @@ def load_config(path: str = "configs/expedition_config.json") -> dict:
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(
-        description="Antartia eval runner — LLM-as-judge",
+        description="AItartica eval runner — LLM-as-judge",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )

@@ -1,4 +1,4 @@
-# Backend Data Contract — Antartia Agent → Server
+# Backend Data Contract — AItartica Agent → Server
 
 Describes every payload the agent sends to the Railway server. All fields reflect data the agent actually has in its DB or computes locally — nothing is fabricated.
 

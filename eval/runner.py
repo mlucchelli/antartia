@@ -95,7 +95,7 @@ async def _call_openrouter(
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
         "HTTP-Referer": "https://github.com/antartia",
-        "X-Title": "Antartia Eval",
+        "X-Title": "AItartica Eval",
     }
     body: dict[str, Any] = {
         "model": model,

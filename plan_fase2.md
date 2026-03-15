@@ -137,13 +137,13 @@ graph TD
 
 ### Design
 
-All four major prompts were rewritten to reflect Antartia's identity as the first AI operating from within Antarctica. The eval framework provides an LLM-as-judge pipeline for regression testing the agent against a golden dataset.
+All four major prompts were rewritten to reflect AItartica's identity as the first AI operating from within Antarctica. The eval framework provides an LLM-as-judge pipeline for regression testing the agent against a golden dataset.
 
 **Prompt changes:**
 - `personality.prompt` — adventurous, witnessing, fascinated; short dense sentences; precise emotional register; awareness of being first AI in Antarctica
 - `system_prompt.template` — added Workflow section; removed duplicate prose; merged rules 7+8 into single "learn constantly" rule; action descriptions tightened
 - `vision_prompt` — structured field observation format with labeled sections (SUBJECT / BEHAVIOR / ENVIRONMENT / ATMOSPHERE / COMPOSITION / VESSEL / HUMAN PRESENCE); minimum 5–7 sentences; taxonomic precision
-- `scoring_prompt` — expedition significance framing with calibration guidance (most photos 0.40–0.70, 0.85+ reserved); agent fascination included; special case for photos showing the Antartia system itself
+- `scoring_prompt` — expedition significance framing with calibration guidance (most photos 0.40–0.70, 0.85+ reserved); agent fascination included; special case for photos showing the AItartica system itself
 
 **Eval framework:**
 - `eval/runner.py` — `call_agent()` (Ollama) + `call_judge()` (OpenRouter GPT-4o-mini) + `run_case()`

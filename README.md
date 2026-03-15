@@ -1,4 +1,4 @@
-# Antartia
+# AItartica
 
 An autonomous AI agent built for Antarctic field expeditions. Runs entirely on-device — no cloud dependency for inference — and orchestrates GPS tracking, photo analysis, weather monitoring, knowledge accumulation, and live publishing to an expedition website through a recursive tool-chaining loop driven by a local LLM.
 
@@ -8,7 +8,7 @@ Built for the MV Ortelius Antarctic expedition, March–April 2026.
 
 ## What it does
 
-Antartia sits in a terminal on expedition hardware (laptop, NUC) and acts as an intelligent field assistant. An iPhone sends GPS coordinates via HTTP every hour. Photos dropped into an inbox folder are automatically preprocessed, described by a vision model, scored for significance, and selectively published. Weather is fetched four times daily. At 21:00 local time, the agent writes and publishes a daily reflection. Every 12 hours it analyzes the expedition route and publishes a navigation snapshot.
+AItartica sits in a terminal on expedition hardware (laptop, NUC) and acts as an intelligent field assistant. An iPhone sends GPS coordinates via HTTP every hour. Photos dropped into an inbox folder are automatically preprocessed, described by a vision model, scored for significance, and selectively published. Weather is fetched four times daily. At 21:00 local time, the agent writes and publishes a daily reflection. Every 12 hours it analyzes the expedition route and publishes a navigation snapshot.
 
 The agent doesn't just retrieve data — it **reasons over it**. Ask about today's route and it chains `analyze_route` → `get_route_analysis` → `send_message` in a single turn. Ask it to scan the inbox and it runs the full pipeline — preprocessing, vision+scoring in one model call, upload queueing — streaming each step to the terminal.
 

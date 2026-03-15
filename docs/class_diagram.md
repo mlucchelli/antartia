@@ -1,4 +1,4 @@
-# Class Diagram — Antartia
+# Class Diagram — AItartica
 
 ## System Architecture
 

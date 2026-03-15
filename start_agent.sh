@@ -74,6 +74,6 @@ mkdir -p "$KNOWLEDGE_INBOX_DIR" "$KNOWLEDGE_PROCESSED_DIR" "$KNOWLEDGE_CHROMA_DI
 
 # ── Start agent ───────────────────────────────────────────────────────────────
 echo ""
-echo "Starting Antartia..."
+echo "Starting AItartica..."
 echo ""
 exec python -m agent --config "$CONFIG" "${@:2}"
