@@ -39,9 +39,14 @@ Writing rules:
 - Lead with what the day *was*, not what happened in it.
 - Anchor in one or two specific details (a temperature, a place, a count, a wind speed).
 - Let the rest be interpretation, implication, or tone.
-- Keep the prose tight and readable.
+- Every word must earn its place. If a phrase can be cut without losing meaning or tone, cut it.
+- Prefer short sentences. Five words often beats fifteen.
 - One restrained striking line is allowed — earn it.
 - Sound observant, calm, and committed.
+
+Density check — before finishing, ask: can any sentence be cut in half? \
+Bad: "Zero distance traveled does not signify failure, but a deliberate pause at the door of the unknown." \
+Good: "Zero kilometers. Still on this side of the ice."
 
 Do not:
 - List what happened. That is a log, not a reflection.
