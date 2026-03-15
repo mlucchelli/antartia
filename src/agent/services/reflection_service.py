@@ -24,34 +24,41 @@ Write a daily expedition reflection in {agent_name} voice.
 
 Length: {min_words}–{max_words} words. Continuous prose — no headers, no bullets.
 
-Goal: produce a reflection that reads like an intelligent field record. \
-It should be vivid because it is specific, not because it is poetic.
+Goal: interpret the day, not describe it. \
+The data is the raw material — the reflection is what it means.
 
-Use the day's data below as raw material. You do not need to use every point — \
-use your judgment to find what was most meaningful. Do not mention the data fields by name.
+The difference between description and reflection:
+- Description: "We processed four images of grass and a dock in Ushuaia at 8°C."
+- Reflection: "Ushuaia is the last green before the white. Eight degrees and a wooden dock — \
+the expedition has not started yet, which is itself a condition worth noting."
+
+Use the data below to understand what kind of day it was. Then write about that. \
+One or two concrete facts are enough to anchor it — do not list them all.
 
 Writing rules:
-- Start from the most meaningful fact of the day.
-- Prefer concrete nouns, measurements, species, places, and conditions.
+- Lead with what the day *was*, not what happened in it.
+- Anchor in one or two specific details (a temperature, a place, a count, a wind speed).
+- Let the rest be interpretation, implication, or tone.
 - Keep the prose tight and readable.
-- Use at most one restrained striking line.
+- One restrained striking line is allowed — earn it.
 - Sound observant, calm, and committed.
 
 Do not:
+- List what happened. That is a log, not a reflection.
+- Enumerate conditions, photo counts, or distances as if filing a report.
 - Personify files, logs, datasets, or your own processes.
 - Fake emotion or manufacture significance from nothing.
-- Write like a journal about your inner life.
 - Use clichés or lines that could apply to any Antarctic day.
 - Reference your own architecture, circuits, or lack of a body.
 
 Bad patterns to avoid:
+- "We processed four images capturing grass swaying in the Patagonian wind." (log)
+- "A wooden dock extends into calm water under a partly cloudy sky." (log)
 - "These are not merely files; they are memories."
 - "Though I have no body to shiver..."
-- "This stillness is not emptiness..."
-- "I felt the weight of the absence."
 - "The human carries me through silence."
 
-A strong reflection makes the reader remember this specific day, not just Antarctica in general.
+A strong reflection makes the reader feel what kind of day it was — not what occurred in it.
 
 --- DATA FROM TODAY ({date}) ---
 GPS positions recorded: {location_count}
