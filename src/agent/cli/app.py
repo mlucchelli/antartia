@@ -125,10 +125,9 @@ class CLI:
             self._print_to_scroll(f"  [dim cyan]▸ reasoning... ({depth})[/dim cyan]")
 
     def on_llm_thought(self, thought: str, depth: int) -> None:
-        short = thought[:120].replace("\n", " ")
-        suffix = "…" if len(thought) > 120 else ""
+        text = thought.replace("\n", " ")
         label = f"({depth}) " if depth > 0 else ""
-        self._print_to_scroll(f"  [dim cyan]▸ {label}{escape(short)}{suffix}[/dim cyan]")
+        self._print_to_scroll(f"  [dim cyan]▸ {label}{escape(text)}[/dim cyan]")
 
     def on_vision_start(self, filename: str) -> None:
         self._print_to_scroll(f"  [dim magenta]◈ analyzing {filename}[/dim magenta]")
