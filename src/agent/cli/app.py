@@ -263,6 +263,17 @@ class CLI:
 
     # -- Status bar (row N) ------------------------------------------------
 
+    def _utc_to_local_hhmm(self, utc_str: str) -> str:
+        if not utc_str:
+            return ""
+        try:
+            from datetime import datetime, timezone
+            from agent.utils.tz import AGENT_TZ
+            dt = datetime.fromisoformat(utc_str.replace("Z", "+00:00"))
+            return dt.astimezone(AGENT_TZ).strftime("%H:%M")
+        except Exception:
+            return utc_str[11:16]
+
     async def refresh_expedition_status(self, db: "Database") -> None:
         from agent.db.locations_repo import LocationsRepository
         from agent.db.tasks_repo import TasksRepository
@@ -279,7 +290,7 @@ class CLI:
                 "type": last["type"],
                 "source": last.get("source", "agent"),
                 "success": last["status"] == "completed",
-                "at": (last.get("executed_at") or "")[:16].replace("T", " ")[11:16],
+                "at": self._utc_to_local_hhmm(last.get("executed_at") or ""),
             }
 
         totals = await TokenUsageRepository(db).get_total()
