@@ -260,6 +260,33 @@ This pre-loads all three models into memory with `keep_alive=-1` (permanent — 
 
 ---
 
+## Tools
+
+### Convert HEIC photos to JPEG
+
+iPhone photos are shot in HEIC by default. Use `tools/heic_to_jpg.py` to convert them before dropping into the inbox (or the agent handles HEIC directly if `pillow-heif` is installed).
+
+```bash
+# Convert a single file
+python tools/heic_to_jpg.py photo.heic
+
+# Convert all HEIC files in a directory
+python tools/heic_to_jpg.py data/photos/inbox/
+
+# Convert to a specific output directory
+python tools/heic_to_jpg.py data/photos/inbox/ -o data/photos/converted/
+
+# Custom JPEG quality (default 95)
+python tools/heic_to_jpg.py data/photos/inbox/ -q 90
+
+# Convert and delete originals
+python tools/heic_to_jpg.py data/photos/inbox/ --delete-originals
+```
+
+Images are saved at full original resolution. Resizing happens later inside the photo pipeline.
+
+---
+
 ## License
 
 MIT
