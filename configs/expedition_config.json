@@ -135,7 +135,7 @@
       },
       {
         "type": "index_knowledge",
-        "description": "Index or re-index all documents in the knowledge source directory. Run once after adding new documents.",
+        "description": "Scan the knowledge inbox folder for new .txt/.md documents and index them into the knowledge base. Use this whenever the user asks to process, load, import, or index knowledge files, or when there may be pending documents in the inbox.",
         "parameters": {}
       },
       {
