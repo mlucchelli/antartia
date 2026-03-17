@@ -144,8 +144,18 @@ class Runtime:
             raw_actions = self._extract_actions(response)
             actions = self._parser.parse(raw_actions)
 
-            # send_message only auto-finishes when no tool calls are pending in the same batch
-            has_tool_actions = any(isinstance(a, ToolAction) for a in actions)
+            # Fire-and-forget tools don't produce data the LLM needs — they don't defer finish.
+            # Only data-returning tools (get_*, scan_*, analyze_*, search_*) should defer finish.
+            _FIRE_AND_FORGET = {
+                "comment", "upload_image",
+                "publish_daily_progress", "publish_reflection", "publish_route_analysis",
+                "publish_route_snapshot", "publish_weather_snapshot",
+                "add_knowledge", "create_task", "add_location",
+            }
+            has_tool_actions = any(
+                isinstance(a, ToolAction) and a.type not in _FIRE_AND_FORGET
+                for a in actions
+            )
 
             # Execute all actions in order.
             # If finish and tool calls appear together, defer finish — the tool
@@ -171,6 +181,7 @@ class Runtime:
                 elif isinstance(action, ToolAction):
                     tool_result = await self._dispatch_tool(action.type, action.payload)
                     logger.info("Tool %s → %s…", action.type, str(tool_result)[:120].replace("\n", " "))
+                    self._output.on_tool_result(action.type, str(tool_result))
                     await self._log_activity(session_id, action.type, action.payload, tool_result)
                     messages.append({
                         "role": "tool",
@@ -329,6 +340,9 @@ class Runtime:
         return json.dumps(rows, default=str)
 
     async def _tool_get_photos(self, payload: dict) -> str:
+        _INTERNAL = {"sha256", "folder", "moved_to_path", "vision_preview_path",
+                     "vision_input_width", "vision_input_height", "original_width",
+                     "original_height", "vision_model"}
         repo = PhotosRepository(self._require_db())
         rows = await repo.get_all(
             vision_status=payload.get("vision_status"),
@@ -337,7 +351,8 @@ class Runtime:
         )
         if not rows:
             return "no photos found"
-        return json.dumps(rows, default=str)
+        clean = [{k: v for k, v in row.items() if k not in _INTERNAL} for row in rows]
+        return json.dumps(clean, default=str)
 
     async def _tool_get_weather(self, payload: dict) -> str:
         from agent.services.weather_service import WeatherService
@@ -401,11 +416,43 @@ class Runtime:
         if new_count == 0 and total == 0:
             return "inbox is empty — no new or pending photos found"
         recovered = len(stuck)
-        result = f"scanned inbox: {new_count} new, {total} processed"
+        header = f"scanned inbox: {new_count} new, {total} processed"
         if recovered:
-            result += f" ({recovered} recovered from stuck state)"
+            header += f" ({recovered} recovered from stuck state)"
         if failed:
-            result += f" ({failed} failed — see logs)"
+            header += f" ({failed} failed — see logs)"
+
+        # Build candidate summary so the agent doesn't need to call get_photos
+        all_done = await PhotosRepository(db).get_all(vision_status="done")
+        processed_ids = {p["id"] for p in to_process}
+        just_processed = [p for p in all_done if p["id"] in processed_ids]
+
+        candidates = [p for p in just_processed if p.get("is_remote_candidate")]
+        non_candidates = [p for p in just_processed if not p.get("is_remote_candidate")]
+
+        lines = [header, ""]
+        if candidates:
+            lines.append("Remote candidates:")
+            for p in candidates:
+                desc = (p.get("vision_description") or "")[:100].replace("\n", " ")
+                quote = p.get("agent_quote") or ""
+                tags = p.get("tags") or "[]"
+                line = f"  id={p['id']} {p['file_name']}  score={p['significance_score']}  tags={tags}"
+                if quote:
+                    line += f'  quote="{quote}"'
+                if desc:
+                    line += f"\n    → {desc}…"
+                lines.append(line)
+        else:
+            lines.append("No remote candidates from this batch.")
+
+        if non_candidates:
+            nc_list = ", ".join(f"{p['file_name']} ({p['significance_score']})" for p in non_candidates)
+            lines.append(f"Below threshold: {nc_list}")
+
+        lines.append("\nNo need to call get_photos — full candidate list above.")
+        result = "\n".join(lines)
+        logger.info("scan_photo_inbox summary:\n%s", result)
         return result
 
     async def _tool_publish_daily_progress(self, payload: dict) -> str:
